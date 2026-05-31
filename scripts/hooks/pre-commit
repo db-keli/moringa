@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# only run if server files changed
+if git diff --cached --name-only | grep -q "^server/"; then
+  echo "→ go fmt"
+  cd server
+  gofmt_output=$(gofmt -l ./.. 2>&1)
+  if [ -n "$gofmt_output" ]; then
+    echo "gofmt issues in:"
+    echo "$gofmt_output"
+    exit 1
+  fi
+
+  echo "→ go vet"
+  go vet ./...
+
+  echo "→ golangci-lint"
+  if command -v golangci-lint &>/dev/null; then
+    golangci-lint run ./...
+  else
+    echo "golangci-lint not installed, skipping (run: brew install golangci-lint)"
+  fi
+
+  cd ..
+fi
+
+echo "✓ pre-commit passed"

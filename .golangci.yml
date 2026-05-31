@@ -1,0 +1,33 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gofmt
+    - goimports
+    - godot
+    - misspell
+    - prealloc
+    - exhaustive
+    - noctx
+    - bodyclose
+
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: github.com/yourusername/moringa
+  godot:
+    scope: declarations
+
+issues:
+  max-same-issues: 3
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck

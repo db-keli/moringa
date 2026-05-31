@@ -1,0 +1,49 @@
+# Binaries
+bin/
+dist/
+*.exe
+*.out
+
+# Go
+server/vendor/
+*.test
+*.prof
+coverage.out
+
+# Swift / Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+*.xcarchive
+*.ipa
+*.dSYM
+.build/
+Packages/
+# keep *.resolved for reproducible builds — remove this line to ignore it
+*.hmap
+
+# Environment
+.env
+.env.local
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml
+
+# Logs
+*.log
+logs/
+
+# Database
+*.db
+*.sqlite
