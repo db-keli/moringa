@@ -47,3 +47,4 @@ logs/
 # Database
 *.db
 *.sqlite
+/server/tmp/
