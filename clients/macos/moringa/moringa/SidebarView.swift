@@ -8,16 +8,11 @@ struct SidebarView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // Brand
-            HStack(spacing: 9) {
-                Image("moringa-mark")
-                    .resizable().scaledToFit().frame(width: 22, height: 22)
-                Text("moringa")
-                    .font(.system(size: 19, weight: .semibold))
-                    .foregroundColor(theme.ink)
-            }
-            .padding(.horizontal, 18)
-            .padding(.top, 20)
-            .padding(.bottom, 14)
+            Image("moringa-mark")
+                .resizable().scaledToFit().frame(width: 28, height: 28)
+                .padding(.horizontal, 18)
+                .padding(.top, 20)
+                .padding(.bottom, 14)
 
             // Search
             Button(action: openSearch) {
