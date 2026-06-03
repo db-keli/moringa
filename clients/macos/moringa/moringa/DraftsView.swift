@@ -2,9 +2,10 @@ import SwiftUI
 
 struct DraftsView: View {
     @Environment(AppTheme.self) var theme
-    @State private var selectedId: String = MockData.drafts[0].id
+    @Environment(Store.self)   var store
+    @State private var selectedId: String? = nil
 
-    var selected: Draft { MockData.drafts.first(where: { $0.id == selectedId }) ?? MockData.drafts[0] }
+    var selected: Draft? { store.drafts.first(where: { $0.id == selectedId }) ?? store.drafts.first }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -14,110 +15,70 @@ struct DraftsView: View {
                     Text("Drafts").font(.system(size: 20, weight: .bold)).foregroundColor(theme.ink)
                     Spacer()
                     Button {
+                        store.createDraft()
+                        selectedId = store.drafts.first?.id
                     } label: {
                         HStack(spacing: 6) {
                             Image(systemName: "plus").font(.system(size: 13, weight: .semibold))
                             Text("New").font(.system(size: 13.5, weight: .semibold))
                         }
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 12).frame(height: 30)
-                        .background(theme.accent)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                    }
-                    .buttonStyle(.plain)
+                        .foregroundColor(.white).padding(.horizontal, 12).frame(height: 30)
+                        .background(theme.accent).clipShape(RoundedRectangle(cornerRadius: 8))
+                    }.buttonStyle(.plain)
                 }
                 .padding(.horizontal, 18).frame(height: 58)
                 .overlay(alignment: .bottom) { Divider().background(theme.line) }
 
-                ScrollView {
-                    VStack(spacing: 0) {
-                        ForEach(MockData.drafts) { d in
-                            Button { selectedId = d.id } label: {
-                                DraftRowView(draft: d, isActive: d.id == selectedId)
+                if store.drafts.isEmpty {
+                    VStack(spacing: 8) {
+                        Image(systemName: "pencil.line").font(.system(size: 32)).foregroundColor(theme.ink3)
+                        Text("No drafts").font(.system(size: 14)).foregroundColor(theme.ink3)
+                    }.frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    ScrollView {
+                        VStack(spacing: 0) {
+                            ForEach(store.drafts) { d in
+                                let isActive = (selectedId ?? store.drafts.first?.id) == d.id
+                                Button { selectedId = d.id } label: {
+                                    DraftRowView(draft: d, isActive: isActive)
+                                }.buttonStyle(.plain)
+                                Divider().background(theme.line)
                             }
-                            .buttonStyle(.plain)
-                            Divider().background(theme.line)
                         }
                     }
                 }
             }
             .frame(width: 300)
-            .background(theme.paper)
             .overlay(alignment: .trailing) { Divider().background(theme.line) }
 
             // Editor
-            VStack(spacing: 0) {
-                // Editor bar
-                HStack(spacing: 10) {
-                    DraftStatusBadge(status: selected.status)
-                    Text("\(selected.words) words").font(.system(size: 12.5)).foregroundColor(theme.ink3)
-                    Text("·").foregroundColor(theme.ink3)
-                    Text("Edited \(selected.edited)").font(.system(size: 12.5)).foregroundColor(theme.ink3)
-                    Spacer()
-                    HStack(spacing: 5) {
-                        Image(systemName: "checkmark").font(.system(size: 12))
-                        Text("Saved locally").font(.system(size: 12.5))
-                    }
-                    .foregroundColor(theme.accentInk)
-                }
-                .padding(.horizontal, 22).frame(height: 50)
-                .overlay(alignment: .bottom) { Divider().background(theme.line) }
-
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        TextField("Title", text: .constant(selected.title))
-                            .font(.system(size: 32, weight: .bold))
-                            .foregroundColor(theme.ink)
-                            .textFieldStyle(.plain)
-                            .padding(.bottom, 8)
-
-                        ForEach(Array(selected.paragraphs.enumerated()), id: \.offset) { _, para in
-                            if para.isHeading {
-                                Text(para.text)
-                                    .font(.system(size: 22, weight: .bold))
-                                    .foregroundColor(theme.ink)
-                                    .padding(.top, 22).padding(.bottom, 8)
-                            } else {
-                                Text(para.text)
-                                    .font(.system(size: 17.5))
-                                    .foregroundColor(theme.ink)
-                                    .lineSpacing(6)
-                                    .padding(.bottom, 16)
-                            }
-                        }
-                    }
-                    .frame(maxWidth: 680)
-                    .padding(.horizontal, 32).padding(.vertical, 44)
-                    .frame(maxWidth: .infinity)
-                }
+            if let d = selected {
+                DraftEditorView(draft: d)
+            } else {
+                Color.clear
             }
-            .background(theme.reader)
         }
     }
 }
+
+// MARK: - Draft Row
 
 struct DraftRowView: View {
     @Environment(AppTheme.self) var theme
     let draft: Draft
     let isActive: Bool
-
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(draft.title)
-                .font(.system(size: 14.5, weight: .bold))
-                .foregroundColor(theme.ink)
-                .lineLimit(1)
+                .font(.system(size: 14.5, weight: .bold)).foregroundColor(theme.ink).lineLimit(1)
             Text(draft.excerpt)
-                .font(.system(size: 12.5)).lineSpacing(2)
-                .foregroundColor(theme.ink2)
-                .lineLimit(2)
+                .font(.system(size: 12.5)).lineSpacing(2).foregroundColor(theme.ink2).lineLimit(2)
             HStack(spacing: 8) {
                 DraftStatusBadge(status: draft.status)
-                Text("\(draft.words) words").font(.system(size: 11.5)).foregroundColor(theme.ink3)
+                Text("\(draft.wordCount) words").font(.system(size: 11.5)).foregroundColor(theme.ink3)
                 Spacer()
-                Text(draft.edited).font(.system(size: 11.5)).foregroundColor(theme.ink3)
-            }
-            .padding(.top, 4)
+                Text(draft.updatedAt.prefix(10)).font(.system(size: 11.5)).foregroundColor(theme.ink3)
+            }.padding(.top, 4)
         }
         .padding(.horizontal, 18).padding(.vertical, 15)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -125,10 +86,66 @@ struct DraftRowView: View {
     }
 }
 
+// MARK: - Draft Editor
+
+struct DraftEditorView: View {
+    @Environment(AppTheme.self) var theme
+    @Environment(Store.self)   var store
+    let draft: Draft
+    @State private var title: String = ""
+    @State private var body:  String = ""
+    @State private var saveTask: Task<Void, Never>?
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 10) {
+                DraftStatusBadge(status: draft.status)
+                Text("\(body.split(separator: " ").count) words").font(.system(size: 12.5)).foregroundColor(theme.ink3)
+                Text("·").foregroundColor(theme.ink3)
+                Text("Edited \(draft.updatedAt.prefix(10))").font(.system(size: 12.5)).foregroundColor(theme.ink3)
+                Spacer()
+                HStack(spacing: 5) {
+                    Image(systemName: "checkmark").font(.system(size: 12))
+                    Text("Saved").font(.system(size: 12.5))
+                }.foregroundColor(theme.accentInk)
+            }
+            .padding(.horizontal, 22).frame(height: 50)
+            .overlay(alignment: .bottom) { Divider().background(theme.line) }
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    TextField("Title", text: $title)
+                        .font(.system(size: 32, weight: .bold))
+                        .foregroundColor(theme.ink).textFieldStyle(.plain).padding(.bottom, 8)
+                    TextEditor(text: $body)
+                        .font(.system(size: 17.5)).foregroundColor(theme.ink)
+                        .lineSpacing(6).background(theme.reader)
+                        .frame(minHeight: 400)
+                }
+                .frame(maxWidth: 680).padding(.horizontal, 32).padding(.vertical, 44).frame(maxWidth: .infinity)
+            }
+        }
+        .background(theme.reader)
+        .onAppear { title = draft.title; body = draft.body }
+        .onChange(of: title) { scheduleSave() }
+        .onChange(of: body)  { scheduleSave() }
+    }
+
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveTask = Task {
+            try? await Task.sleep(nanoseconds: 800_000_000) // 0.8s debounce
+            guard !Task.isCancelled else { return }
+            store.updateDraft(id: draft.id, title: title, body: body)
+        }
+    }
+}
+
+// MARK: - Status Badge
+
 struct DraftStatusBadge: View {
     @Environment(AppTheme.self) var theme
     let status: DraftStatus
-
     var body: some View {
         Text(status.rawValue.uppercased())
             .font(.system(size: 10.5, weight: .bold)).tracking(0.04)

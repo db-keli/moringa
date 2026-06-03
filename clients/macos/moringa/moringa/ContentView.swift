@@ -11,7 +11,6 @@ struct ContentView: View {
 
     var body: some View {
         ZStack {
-            // Main layout
             HStack(spacing: 0) {
                 SidebarView(screen: $screen, openSearch: { screen = .search })
                     .frame(width: 248)

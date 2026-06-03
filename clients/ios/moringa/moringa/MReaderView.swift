@@ -2,95 +2,94 @@ import SwiftUI
 
 struct MReaderView: View {
     @Environment(AppTheme.self) var theme
+    @Environment(Store.self)   var store
     let book: Book
     var onBack: () -> Void
+
+    @State private var chunks: [BookChunk] = []
+    @State private var currentChunk = 0
+    @State private var loading = true
+    @State private var errorMsg: String?
 
     var body: some View {
         ZStack {
             theme.reader.ignoresSafeArea()
-
             VStack(spacing: 0) {
                 // Toolbar
                 HStack(spacing: 10) {
                     Button(action: onBack) {
-                        Image(systemName: "chevron.left")
-                            .font(.system(size: 16, weight: .medium))
-                            .foregroundColor(theme.ink2)
-                            .frame(width: 38, height: 38)
-                            .background(theme.surface)
-                            .clipShape(Circle())
+                        Image(systemName: "chevron.left").font(.system(size: 16, weight: .medium))
+                            .foregroundColor(theme.ink2).frame(width: 38, height: 38)
+                            .background(theme.surface).clipShape(Circle())
                             .overlay(Circle().stroke(theme.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
+                    }.buttonStyle(.plain)
 
                     Spacer()
-
-                    Text(book.title)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(theme.ink)
-                        .lineLimit(1)
-
+                    Text(book.title).font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(theme.ink).lineLimit(1)
                     Spacer()
 
-                    Button { } label: {
-                        Image(systemName: "textformat.size")
-                            .font(.system(size: 16))
-                            .foregroundColor(theme.ink2)
-                            .frame(width: 38, height: 38)
-                            .background(theme.surface)
-                            .clipShape(Circle())
-                            .overlay(Circle().stroke(theme.line, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.horizontal, 16)
-                .padding(.top, 58)
-                .padding(.bottom, 10)
-                .background(theme.reader)
+                    if !chunks.isEmpty {
+                        HStack(spacing: 4) {
+                            Button { if currentChunk > 0 { currentChunk -= 1 } } label: {
+                                Image(systemName: "chevron.left").font(.system(size: 13))
+                            }.buttonStyle(.plain).foregroundColor(theme.ink2).disabled(currentChunk == 0)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        Text("Chapter II")
-                            .font(.system(size: 11, weight: .bold)).tracking(0.12)
-                            .foregroundColor(theme.accentInk)
+                            Text("\(currentChunk+1)/\(chunks.count)")
+                                .font(.system(size: 12)).foregroundColor(theme.ink3)
 
-                        Text("Where I Lived, and What I Lived For")
-                            .font(.system(size: 25, weight: .bold))
-                            .foregroundColor(theme.ink)
-                            .padding(.top, 9).padding(.bottom, 22)
-
-                        ForEach(Array(MockData.readerParas.enumerated()), id: \.offset) { _, para in
-                            Group {
-                                if let hl = para.highlight {
-                                    Text(para.text)
-                                        .padding(4)
-                                        .background(hl.color)
-                                        .foregroundColor(hl.textColor)
-                                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                                } else {
-                                    Text(para.text)
-                                        .foregroundColor(theme.ink)
-                                }
-                            }
-                            .font(.system(size: 18))
-                            .lineSpacing(7)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.bottom, 18)
+                            Button { if currentChunk < chunks.count-1 { currentChunk += 1 } } label: {
+                                Image(systemName: "chevron.right").font(.system(size: 13))
+                            }.buttonStyle(.plain).foregroundColor(theme.ink2).disabled(currentChunk == chunks.count-1)
                         }
                     }
-                    .padding(.horizontal, 24).padding(.vertical, 24).padding(.bottom, 60)
                 }
+                .padding(.horizontal, 16).padding(.top, 58).padding(.bottom, 10)
 
-                // Footer
-                HStack {
-                    Text("42% · about 9 min left in chapter")
-                        .font(.system(size: 12)).foregroundColor(theme.ink3)
+                if loading {
+                    Spacer()
+                    ProgressView("Loading…").foregroundColor(theme.ink3)
+                    Spacer()
+                } else if let err = errorMsg {
+                    Spacer()
+                    VStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle").font(.system(size: 32)).foregroundColor(theme.ink3)
+                        Text(err).font(.system(size: 14)).foregroundColor(theme.ink3).multilineTextAlignment(.center)
+                        Button("Retry") { Task { await load() } }
+                            .foregroundColor(theme.accentInk).buttonStyle(.plain)
+                    }.padding(40)
+                    Spacer()
+                } else if !chunks.isEmpty {
+                    WebReaderView(html: chunks[currentChunk].html,
+                                  isDark: theme.isDark,
+                                  fontSize: theme.readerSize) { pct in
+                        let overall = (Double(currentChunk) + pct) / Double(chunks.count)
+                        store.savePosition(bookId: book.id, chunkIndex: currentChunk, scrollPct: overall)
+                    }
+
+                    HStack {
+                        Text("\(Int(book.progress * 100))% · \(chunks[currentChunk].title.isEmpty ? "Chapter \(currentChunk+1)" : chunks[currentChunk].title)")
+                            .font(.system(size: 12)).foregroundColor(theme.ink3)
+                    }
+                    .frame(height: 44).overlay(alignment: .top) { Divider().background(theme.line) }
                 }
-                .frame(height: 44)
-                .frame(maxWidth: .infinity)
-                .background(theme.reader)
-                .overlay(alignment: .top) { Divider().background(theme.line) }
             }
+        }
+        .task { await load() }
+    }
+
+    private func load() async {
+        loading = true; errorMsg = nil
+        do {
+            let c = try await store.chunks(for: book)
+            let state = store.readingState(for: book)
+            await MainActor.run {
+                chunks = c
+                currentChunk = min(state.chunkIndex, max(0, c.count-1))
+                loading = false
+            }
+        } catch {
+            await MainActor.run { errorMsg = error.localizedDescription; loading = false }
         }
     }
 }
