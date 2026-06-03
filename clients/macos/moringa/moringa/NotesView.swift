@@ -46,7 +46,7 @@ struct NotesView: View {
         }
         // New note sheet
         .sheet(isPresented: $showNewNote) {
-            NoteWriteSheet(title: $newTitle, body: $newBody,
+            NoteWriteSheet(title: $newTitle, content: $newBody,
                 onSave: {
                     guard !newTitle.isEmpty else { return }
                     store.createNote(title: newTitle, body: newBody)
@@ -122,7 +122,7 @@ struct NoteCard: View {
 struct NoteWriteSheet: View {
     @Environment(AppTheme.self) var theme
     @Binding var title: String
-    @Binding var body: String
+    @Binding var content: String
     var onSave: () -> Void
     var onCancel: () -> Void
 
@@ -139,7 +139,7 @@ struct NoteWriteSheet: View {
             TextField("Title", text: $title)
                 .font(.system(size: 18, weight: .semibold)).textFieldStyle(.plain)
                 .padding(.horizontal).padding(.top, 14)
-            TextEditor(text: $body)
+            TextEditor(text: $content)
                 .font(.system(size: 14)).foregroundColor(theme.ink).background(theme.surface)
                 .padding(.horizontal).padding(.top, 8)
         }
@@ -153,7 +153,7 @@ struct NoteEditSheet: View {
     @Environment(AppTheme.self) var theme
     let note: Note
     @State private var title: String
-    @State private var body: String
+    @State private var content: String
     var onSave: (String, String) -> Void
     var onDelete: () -> Void
     var onCancel: () -> Void
@@ -161,8 +161,8 @@ struct NoteEditSheet: View {
     init(note: Note, onSave: @escaping (String, String) -> Void,
          onDelete: @escaping () -> Void, onCancel: @escaping () -> Void) {
         self.note = note
-        _title = State(initialValue: note.title)
-        _body  = State(initialValue: note.body)
+        _title   = State(initialValue: note.title)
+        _content = State(initialValue: note.body)
         self.onSave   = onSave
         self.onDelete = onDelete
         self.onCancel = onCancel
@@ -176,7 +176,7 @@ struct NoteEditSheet: View {
                 }.buttonStyle(.plain)
                 Spacer()
                 Button("Cancel", action: onCancel).foregroundColor(theme.ink2).buttonStyle(.plain)
-                Button("Save") { onSave(title, body) }
+                Button("Save") { onSave(title, content) }
                     .foregroundColor(theme.accentInk).fontWeight(.semibold).buttonStyle(.plain)
             }
             .padding().overlay(alignment: .bottom) { Divider().background(theme.line) }
@@ -184,7 +184,7 @@ struct NoteEditSheet: View {
             TextField("Title", text: $title)
                 .font(.system(size: 18, weight: .semibold)).textFieldStyle(.plain)
                 .padding(.horizontal).padding(.top, 14)
-            TextEditor(text: $body)
+            TextEditor(text: $content)
                 .font(.system(size: 14)).foregroundColor(theme.ink).background(theme.surface)
                 .padding(.horizontal).padding(.top, 8)
         }

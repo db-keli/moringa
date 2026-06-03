@@ -92,15 +92,15 @@ struct DraftEditorView: View {
     @Environment(AppTheme.self) var theme
     @Environment(Store.self)   var store
     let draft: Draft
-    @State private var title: String = ""
-    @State private var body:  String = ""
+    @State private var title:   String = ""
+    @State private var content: String = ""
     @State private var saveTask: Task<Void, Never>?
 
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 10) {
                 DraftStatusBadge(status: draft.status)
-                Text("\(body.split(separator: " ").count) words").font(.system(size: 12.5)).foregroundColor(theme.ink3)
+                Text("\(content.split(separator: " ").count) words").font(.system(size: 12.5)).foregroundColor(theme.ink3)
                 Text("·").foregroundColor(theme.ink3)
                 Text("Edited \(draft.updatedAt.prefix(10))").font(.system(size: 12.5)).foregroundColor(theme.ink3)
                 Spacer()
@@ -117,7 +117,7 @@ struct DraftEditorView: View {
                     TextField("Title", text: $title)
                         .font(.system(size: 32, weight: .bold))
                         .foregroundColor(theme.ink).textFieldStyle(.plain).padding(.bottom, 8)
-                    TextEditor(text: $body)
+                    TextEditor(text: $content)
                         .font(.system(size: 17.5)).foregroundColor(theme.ink)
                         .lineSpacing(6).background(theme.reader)
                         .frame(minHeight: 400)
@@ -126,9 +126,9 @@ struct DraftEditorView: View {
             }
         }
         .background(theme.reader)
-        .onAppear { title = draft.title; body = draft.body }
-        .onChange(of: title) { scheduleSave() }
-        .onChange(of: body)  { scheduleSave() }
+        .onAppear { title = draft.title; content = draft.body }
+        .onChange(of: title)   { scheduleSave() }
+        .onChange(of: content) { scheduleSave() }
     }
 
     private func scheduleSave() {
@@ -136,7 +136,7 @@ struct DraftEditorView: View {
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 800_000_000) // 0.8s debounce
             guard !Task.isCancelled else { return }
-            store.updateDraft(id: draft.id, title: title, body: body)
+            store.updateDraft(id: draft.id, title: title, body: content)
         }
     }
 }
