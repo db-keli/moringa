@@ -3,6 +3,9 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
 )
 
 type VectorClock map[string]int64
@@ -23,6 +26,14 @@ func (s *Store) InsertEvent(
 		 RETURNING id, device, seq, type, payload, created_at`,
 		device, seq, eventType, payload,
 	).Scan(&e.ID, &e.Device, &e.Seq, &e.Type, &e.Payload, &e.CreatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		err = s.db.QueryRow(
+			ctx,
+			`SELECT id, device, seq, type, payload, created_at
+			 FROM events WHERE device = $1 AND seq = $2`,
+			device, seq,
+		).Scan(&e.ID, &e.Device, &e.Seq, &e.Type, &e.Payload, &e.CreatedAt)
+	}
 	return e, err
 }
 
