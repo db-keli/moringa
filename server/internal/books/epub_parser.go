@@ -13,15 +13,12 @@ import (
 	"strings"
 )
 
-// Chunk represents a single chapter from a parsed EPUB.
 type Chunk struct {
 	Index   int    `json:"index"`
 	Title   string `json:"title"`
 	Content string `json:"content"`
 }
 
-// ParseEPUB extracts a ZIP-based EPUB into chapter chunks and copies
-// supporting assets (images, CSS, fonts) alongside chunks.json.
 func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 	r, err := zip.OpenReader(epubPath)
 	if err != nil {
@@ -69,13 +66,13 @@ func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 		})
 	}
 
-	// Copy non-XHTML assets (images, CSS, fonts) into the output directory.
 	for _, f := range files {
 		if f.FileInfo().IsDir() {
 			continue
 		}
 		ext := strings.ToLower(filepath.Ext(f.Name))
-		if ext == ".xhtml" || ext == ".html" || ext == ".htm" || ext == ".xml" || ext == ".opf" || ext == ".ncx" {
+		if ext == ".xhtml" || ext == ".html" || ext == ".htm" || ext == ".xml" || ext == ".opf" ||
+			ext == ".ncx" {
 			continue
 		}
 		dest := filepath.Join(outputDir, f.Name)
@@ -96,7 +93,6 @@ func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 		out.Close()
 	}
 
-	// Write chunks.json.
 	b, err := json.Marshal(chunks)
 	if err != nil {
 		return nil, fmt.Errorf("marshal chunks: %w", err)
@@ -107,8 +103,6 @@ func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 
 	return chunks, nil
 }
-
-// --- internal helpers ---
 
 type opfPackage struct {
 	Metadata struct {
@@ -132,7 +126,6 @@ type opfPackage struct {
 func findOPF(files []*zip.File) (string, error) {
 	containerRaw, err := readFile(files, "META-INF/container.xml")
 	if err != nil {
-		// Try common alternative casing
 		containerRaw, err = readFile(files, "meta-inf/container.xml")
 		if err != nil {
 			return "", fmt.Errorf("META-INF/container.xml not found")
@@ -252,8 +245,6 @@ func readFile(files []*zip.File, name string) ([]byte, error) {
 	return nil, fmt.Errorf("file not found: %s", name)
 }
 
-// stripXMLNS removes all xmlns attributes and namespace prefixes from XML
-// so that encoding/xml can parse elements by local name alone.
 func stripXMLNS(raw []byte) []byte {
 	re := regexp.MustCompile(`\s+xmlns(?::\w+)?="[^"]+"`)
 	cleaned := re.ReplaceAll(raw, []byte{})

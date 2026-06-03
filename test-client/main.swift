@@ -379,7 +379,7 @@ func runTests() async {
     let dbPath = "\(dbDir)/local.db"
     try? FileManager.default.removeItem(atPath: dbPath)
     guard let local = try? LocalDB(path: dbPath) else {
-        print("❌ failed to open local db")
+        print("failed to open local db")
         return
     }
     print("Local DB: \(dbPath)\n")
@@ -397,14 +397,14 @@ func runTests() async {
         }
 
         guard let first = books.first else {
-            print("  no books, import one first")
+            print("no books, import one first")
             return
         }
         let idPrefix = first.id.prefix(8)
         print("\n— GET /books/\(idPrefix)/chunks → local cache")
         let chunks = try await client.getBookChunks(bookID: first.id)
         try local.cacheChunks(bookID: first.id, chunks: chunks)
-        print("  ✓ \(chunks.count) chunks cached locally")
+        print("  \(chunks.count) chunks cached locally")
         local.dumpChunks(bookID: first.id)
 
         print("\n— POST /events (highlight_added)")
