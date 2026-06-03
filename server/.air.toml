@@ -1,0 +1,12 @@
+[build]
+  cmd = "go build -o ./tmp/moringa ./cmd/moringa"
+  bin = "./tmp/moringa"
+  include_ext = ["go"]
+  exclude_dir = ["tmp", "vendor"]
+  delay = 500
+
+[log]
+  time = false
+
+[misc]
+  clean_on_exit = true

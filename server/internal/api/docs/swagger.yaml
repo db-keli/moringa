@@ -1,0 +1,262 @@
+basePath: /
+definitions:
+  api.ingestRequest:
+    properties:
+      device:
+        type: string
+      payload:
+        type: object
+      seq:
+        type: integer
+      type:
+        type: string
+    type: object
+  store.Book:
+    properties:
+      author:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+    type: object
+  store.Event:
+    properties:
+      created_at:
+        type: string
+      device:
+        type: string
+      id:
+        type: integer
+      payload:
+        type: object
+      seq:
+        type: integer
+      type:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Self-hosted reading and writing workspace. Syncs books, highlights,
+    and reading positions across devices.
+  title: Moringa API
+  version: "1.0"
+paths:
+  /books:
+    get:
+      description: Returns all imported books with metadata.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/store.Book'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all books
+      tags:
+      - books
+  /books/{id}:
+    get:
+      description: Returns book metadata for the given ID.
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/store.Book'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a book
+      tags:
+      - books
+  /books/{id}/chunks:
+    get:
+      description: Returns pre-parsed chapter chunks for a book. Clients cache this
+        permanently.
+      parameters:
+      - description: Book ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              additionalProperties: true
+              type: object
+            type: array
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get book chunks
+      tags:
+      - books
+  /books/import:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload an EPUB file. The server stores it on disk and records metadata.
+        EPUB parsing (chunk extraction) runs asynchronously after upload.
+      parameters:
+      - description: Book title
+        in: formData
+        name: title
+        required: true
+        type: string
+      - description: Book author
+        in: formData
+        name: author
+        type: string
+      - description: EPUB file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Book'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Import an EPUB
+      tags:
+      - books
+  /events:
+    post:
+      consumes:
+      - application/json
+      description: Accepts a sync event (highlight added, position updated, etc.)
+        from a device, stores it in the event log, and broadcasts it to all connected
+        clients via SSE.
+      parameters:
+      - description: Sync event payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api.ingestRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/store.Event'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Ingest a sync event
+      tags:
+      - sync
+  /health:
+    get:
+      description: 'Returns {"status": "ok"} if the server is running.'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - system
+  /stream:
+    get:
+      description: Opens a Server-Sent Events connection. Pass the current vector
+        clock as query params (e.g. ?mac=44&phone=31). The server streams missed events
+        first, then pushes new events in real time.
+      parameters:
+      - description: Last seen event seq for device 'mac'
+        in: query
+        name: mac
+        type: integer
+      - description: Last seen event seq for device 'phone'
+        in: query
+        name: phone
+        type: integer
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: OK
+      security:
+      - BearerAuth: []
+      summary: SSE event stream
+      tags:
+      - sync
+securityDefinitions:
+  BearerAuth:
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

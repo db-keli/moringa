@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: moringa
+      POSTGRES_PASSWORD: moringa
+      POSTGRES_DB: moringa
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./server/migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U moringa"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile.dev
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://moringa:moringa@db:5432/moringa?sslmode=disable
+      PORT: 8080
+      BOOKS_DIR: /data/books
+      AUTH_TOKEN: devtoken
+    volumes:
+      - ./server:/app
+      - books_data:/data/books
+
+volumes:
+  postgres_data:
+  books_data:
