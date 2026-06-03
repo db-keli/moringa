@@ -16,10 +16,10 @@ import (
 type Chunk struct {
 	Index   int    `json:"index"`
 	Title   string `json:"title"`
-	Content string `json:"content"`
+	Content string `json:"html"`
 }
 
-func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
+func ParseEPUB(epubPath, outputDir, bookID, baseURL string) ([]Chunk, error) {
 	r, err := zip.OpenReader(epubPath)
 	if err != nil {
 		return nil, fmt.Errorf("open epub: %w", err)
@@ -45,6 +45,8 @@ func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 
 	spineItems := resolveSpine(pkg, opfDir)
 
+	assetBase := strings.TrimRight(baseURL, "/") + "/books/" + bookID + "/assets"
+
 	var chunks []Chunk
 	for i, item := range spineItems {
 		raw, err := readFile(files, item.path)
@@ -59,6 +61,7 @@ func ParseEPUB(epubPath, outputDir string) ([]Chunk, error) {
 
 		title := extractTitle(raw, item.href)
 		body := extractBody(raw)
+		body = rewriteAssetURLs(body, filepath.Dir(item.path), assetBase)
 		chunks = append(chunks, Chunk{
 			Index:   i,
 			Title:   title,
@@ -201,7 +204,6 @@ func isContentType(mt string) bool {
 }
 
 func extractTitle(raw []byte, href string) string {
-	// Try XHTML <title> tag.
 	re := regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
 	if m := re.FindSubmatch(raw); len(m) > 1 {
 		t := strings.TrimSpace(string(m[1]))
@@ -210,7 +212,6 @@ func extractTitle(raw []byte, href string) string {
 		}
 	}
 
-	// Fall back to filename without extension.
 	base := filepath.Base(href)
 	base = strings.TrimSuffix(base, filepath.Ext(base))
 	base = strings.ReplaceAll(base, "_", " ")
@@ -260,4 +261,23 @@ func decodeXML(raw []byte, v any) error {
 	dec.Strict = false
 	dec.Entity = xml.HTMLEntity
 	return dec.Decode(v)
+}
+
+func rewriteAssetURLs(html, chapterDir, assetBase string) string {
+	re := regexp.MustCompile(`(?i)(src|href)=["']([^"'#?][^"']*)["']`)
+	return re.ReplaceAllStringFunc(html, func(match string) string {
+		m := re.FindStringSubmatch(match)
+		if len(m) < 3 {
+			return match
+		}
+		attr, val := m[1], m[2]
+		if strings.HasPrefix(val, "http://") || strings.HasPrefix(val, "https://") ||
+			strings.HasPrefix(val, "data:") {
+			return match
+		}
+		resolved := filepath.ToSlash(filepath.Join(chapterDir, val))
+		resolved = strings.TrimPrefix(resolved, "./")
+		quote := string(match[len(attr)+1])
+		return attr + "=" + quote + assetBase + "/" + resolved + quote
+	})
 }

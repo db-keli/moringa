@@ -191,12 +191,32 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse EPUB into chunks (best-effort, non-fatal on failure).
-	if _, err := books.ParseEPUB(destPath, bookDir); err != nil {
+	baseURL := "http://" + r.Host
+	if r.TLS != nil {
+		baseURL = "https://" + r.Host
+	}
+	if _, err := books.ParseEPUB(destPath, bookDir, book.ID, baseURL); err != nil {
 		log.Printf("error parsing epub %s: %v", book.ID, err)
 	}
 
 	writeJSON(w, http.StatusCreated, book)
+}
+
+func (h *Handler) bookAssets() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			writeError(w, http.StatusBadRequest, "missing book id")
+			return
+		}
+		prefix := "/books/" + id + "/assets/"
+		fs := http.FileServer(http.Dir(filepath.Join(h.booksDir, id)))
+		r.URL.Path = strings.TrimPrefix(r.URL.Path, prefix)
+		if r.URL.Path == "" {
+			r.URL.Path = "/"
+		}
+		fs.ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

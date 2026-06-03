@@ -41,6 +41,7 @@ func NewRouter(h *Handler, authToken string) http.Handler {
 	protected.HandleFunc("GET /books", h.listBooks)
 	protected.HandleFunc("GET /books/{id}", h.getBook)
 	protected.HandleFunc("GET /books/{id}/chunks", h.getBookChunks)
+	protected.Handle("GET /books/{id}/assets/", h.bookAssets())
 	protected.HandleFunc("POST /books/import", h.importBook)
 	protected.HandleFunc("POST /events", h.ingestEvent)
 	protected.HandleFunc("GET /stream", h.stream)
