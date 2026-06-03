@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HighlightsView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @State private var filter: String = "all"
 
     var byBook: [String: [Highlight]] {
@@ -128,7 +128,7 @@ struct HighlightsView: View {
 // MARK: - Highlight Card
 
 struct HLCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let highlight: Highlight
 
     var body: some View {

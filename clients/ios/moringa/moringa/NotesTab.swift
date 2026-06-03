@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NotesTab: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -42,7 +42,7 @@ struct NotesTab: View {
 }
 
 struct MNoteCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let note: Note
 
     var body: some View {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct NotesView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -40,7 +40,7 @@ struct NotesView: View {
 }
 
 struct NoteCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let note: Note
 
     var body: some View {

@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MEditorView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let draft: Draft
     var onBack: () -> Void
 

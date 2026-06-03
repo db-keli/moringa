@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DraftsView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @State private var selectedId: String = MockData.drafts[0].id
 
     var selected: Draft { MockData.drafts.first(where: { $0.id == selectedId }) ?? MockData.drafts[0] }
@@ -97,7 +97,7 @@ struct DraftsView: View {
 }
 
 struct DraftRowView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let draft: Draft
     let isActive: Bool
 
@@ -126,7 +126,7 @@ struct DraftRowView: View {
 }
 
 struct DraftStatusBadge: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let status: DraftStatus
 
     var body: some View {

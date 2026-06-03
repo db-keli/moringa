@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct SearchView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @State private var query: String = "deliberately"
 
     var ql: String { query.trimmingCharacters(in: .whitespaces).lowercased() }

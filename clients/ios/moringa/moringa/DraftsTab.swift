@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct DraftsTab: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     var openDraft: (Draft) -> Void
 
     var body: some View {
@@ -45,7 +45,7 @@ struct DraftsTab: View {
 }
 
 struct MDraftCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let draft: Draft
 
     var body: some View {
@@ -75,7 +75,7 @@ struct MDraftCard: View {
 }
 
 struct MDraftBadge: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let status: DraftStatus
     var body: some View {
         Text(status.rawValue.uppercased())

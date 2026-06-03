@@ -1,11 +1,12 @@
 import SwiftUI
 
 struct MSettingsView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     var onBack: () -> Void
 
     var body: some View {
-        ZStack {
+        @Bindable var theme = theme
+        return ZStack {
             theme.paper.ignoresSafeArea()
 
             VStack(spacing: 0) {

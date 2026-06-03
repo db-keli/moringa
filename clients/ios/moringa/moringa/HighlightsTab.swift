@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct HighlightsTab: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
 
     var body: some View {
         VStack(spacing: 0) {
@@ -30,7 +30,7 @@ struct HighlightsTab: View {
 }
 
 struct MHLCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let highlight: Highlight
 
     var body: some View {

@@ -1,10 +1,11 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
 
     var body: some View {
-        VStack(spacing: 0) {
+        @Bindable var theme = theme
+        return VStack(spacing: 0) {
             HStack {
                 Text("Settings").font(.system(size: 20, weight: .bold)).foregroundColor(theme.ink)
                 Spacer()

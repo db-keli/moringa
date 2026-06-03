@@ -15,7 +15,7 @@ enum Overlay: Identifiable {
 }
 
 struct ContentView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @State private var tab: MTab = .library
     @State private var overlay: Overlay? = nil
 
@@ -68,7 +68,7 @@ struct ContentView: View {
 // MARK: - Tab Bar
 
 struct MTabBar: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @Binding var tab: MTab
 
     let items: [(MTab, String, String)] = [

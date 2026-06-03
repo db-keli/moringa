@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 // MARK: - Hex Color
 extension Color {
@@ -15,7 +16,6 @@ extension Color {
 
 // MARK: - Static tokens
 enum M {
-    static let accent       = Color(hex: "4E9D6A")
     static let accentInkL   = Color(hex: "3C8455")
     static let accentInkD   = Color(hex: "6FC08C")
 
@@ -51,20 +51,24 @@ enum M {
     static let dReader   = Color(hex: "161B1C")
 }
 
-// MARK: - AppTheme
-@MainActor
-final class AppTheme: ObservableObject {
-    @Published var isDark: Bool = UserDefaults.standard.bool(forKey: "moringa.dark") {
+// MARK: - AppTheme  (@Observable — Swift 6 / Xcode 26)
+@Observable
+final class AppTheme {
+    var isDark: Bool = false {
         didSet { UserDefaults.standard.set(isDark, forKey: "moringa.dark") }
     }
-    @Published var accentHex: String = UserDefaults.standard.string(forKey: "moringa.accentHex") ?? "4E9D6A" {
+    var accentHex: String = "4E9D6A" {
         didSet { UserDefaults.standard.set(accentHex, forKey: "moringa.accentHex") }
     }
-    @Published var readerSize: Double = {
-        let v = UserDefaults.standard.double(forKey: "moringa.readerSize")
-        return v == 0 ? 19 : v
-    }() {
+    var readerSize: Double = 19 {
         didSet { UserDefaults.standard.set(readerSize, forKey: "moringa.readerSize") }
+    }
+
+    init() {
+        isDark    = UserDefaults.standard.bool(forKey: "moringa.dark")
+        if let s  = UserDefaults.standard.string(forKey: "moringa.accentHex") { accentHex = s }
+        let rs    = UserDefaults.standard.double(forKey: "moringa.readerSize")
+        if rs > 0 { readerSize = rs }
     }
 
     var accent:     Color { Color(hex: accentHex) }

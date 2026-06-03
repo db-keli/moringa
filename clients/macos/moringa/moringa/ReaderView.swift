@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct ReaderView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let book: Book
     var onBack: () -> Void
 
@@ -17,7 +17,7 @@ struct ReaderView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
+                    .buttonStyle(IconBtnStyle())
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(book.title).font(.system(size: 13.5, weight: .semibold)).foregroundColor(theme.ink)
@@ -26,11 +26,11 @@ struct ReaderView: View {
 
                     Spacer()
                     Button { } label: { Image(systemName: "list.bullet").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
+                        .buttonStyle(IconBtnStyle())
                     Button { } label: { Image(systemName: "textformat.size").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
+                        .buttonStyle(IconBtnStyle())
                     Button { } label: { Image(systemName: "highlighter").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
+                        .buttonStyle(IconBtnStyle())
                 }
                 .padding(.horizontal, 18)
                 .frame(height: 54)
@@ -91,7 +91,7 @@ struct ReaderView: View {
 // MARK: - Paragraph View
 
 struct ParaView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let para: ReaderPara
     let index: Int
     let activeHL: HLColor?
@@ -154,17 +154,15 @@ struct ParaView: View {
 }
 
 // MARK: - Icon Button Style (macOS)
-// ButtonStyle cannot use @EnvironmentObject — colors are passed as values.
 
 struct IconBtnStyle: ButtonStyle {
-    var ink2Color: Color
-    var surface2Color: Color
+    @Environment(AppTheme.self) var theme
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(ink2Color)
+            .foregroundColor(theme.ink2)
             .frame(width: 34, height: 34)
-            .background(configuration.isPressed ? surface2Color : Color.clear)
+            .background(configuration.isPressed ? theme.surface2 : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 }

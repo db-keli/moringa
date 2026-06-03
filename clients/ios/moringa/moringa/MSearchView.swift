@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MSearchView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     var onBack: () -> Void
     @State private var query: String = ""
 

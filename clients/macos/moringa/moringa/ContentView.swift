@@ -5,7 +5,7 @@ enum AppScreen: String, Hashable {
 }
 
 struct ContentView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     @State private var screen: AppScreen = .library
     @State private var openedBook: Book? = nil
 

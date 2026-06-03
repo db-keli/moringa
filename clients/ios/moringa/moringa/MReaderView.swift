@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct MReaderView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let book: Book
     var onBack: () -> Void
 

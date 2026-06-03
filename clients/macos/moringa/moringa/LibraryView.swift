@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LibraryView: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     var openBook: (Book) -> Void
     @State private var filter: String = "All"
 
@@ -26,14 +26,7 @@ struct LibraryView: View {
                 HStack(spacing: 8) {
                     ForEach(filters, id: \.self) { f in
                         Button(f) { filter = f }
-                            .buttonStyle(ChipStyle(
-                                active: filter == f,
-                                inkColor: theme.ink,
-                                ink2Color: theme.ink2,
-                                paperColor: theme.paper,
-                                surfaceColor: theme.surface,
-                                lineColor: theme.line
-                            ))
+                            .buttonStyle(ChipStyle(active: filter == f))
                     }
                 }
             }
@@ -78,7 +71,7 @@ struct LibraryView: View {
 // MARK: - Reading Now Card
 
 struct ReadingNowCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let book: Book
     var openBook: (Book) -> Void
 
@@ -107,7 +100,7 @@ struct ReadingNowCard: View {
                         .fill(theme.accentInk)
                         .frame(width: 2)
                         .padding(.vertical, 2)
-                    Text(""\(MockData.readingNowQuote)"")
+                    Text("\u{201C}\(MockData.readingNowQuote)\u{201D}")
                         .font(.system(size: 14.5))
                         .foregroundColor(theme.ink2)
                         .lineSpacing(4)
@@ -159,7 +152,7 @@ struct ReadingNowCard: View {
 // MARK: - Book Grid Cell
 
 struct BookGridCell: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let book: Book
 
     var body: some View {
@@ -191,25 +184,20 @@ struct BookGridCell: View {
 }
 
 // MARK: - Chip Button Style
-// ButtonStyle cannot use @EnvironmentObject — colors are passed as values.
 
 struct ChipStyle: ButtonStyle {
+    @Environment(AppTheme.self) var theme
     var active: Bool
-    var inkColor: Color
-    var ink2Color: Color
-    var paperColor: Color
-    var surfaceColor: Color
-    var lineColor: Color
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
-            .foregroundColor(active ? paperColor : ink2Color)
+            .foregroundColor(active ? theme.paper : theme.ink2)
             .padding(.horizontal, 13)
             .frame(height: 30)
-            .background(active ? inkColor : surfaceColor)
+            .background(active ? theme.ink : theme.surface)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(lineColor, lineWidth: 1))
+            .overlay(Capsule().stroke(theme.line, lineWidth: 1))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }

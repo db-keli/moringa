@@ -2,12 +2,12 @@ import SwiftUI
 
 @main
 struct moringaApp: App {
-    @StateObject private var theme = AppTheme()
+    @State private var theme = AppTheme()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
-                .environmentObject(theme)
+                .environment(theme)
                 .preferredColorScheme(theme.isDark ? .dark : .light)
         }
         .defaultSize(width: 1100, height: 700)

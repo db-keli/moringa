@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct LibraryTab: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     var openBook: (Book) -> Void
     var openSearch: () -> Void
     var openSettings: () -> Void
@@ -96,7 +96,7 @@ struct LibraryTab: View {
 }
 
 struct MReadingNowCard: View {
-    @EnvironmentObject var theme: AppTheme
+    @Environment(AppTheme.self) var theme
     let book: Book
 
     var body: some View {
