@@ -52,10 +52,20 @@ enum M {
 }
 
 // MARK: - AppTheme
+@MainActor
 final class AppTheme: ObservableObject {
-    @AppStorage("moringa.dark")       var isDark:     Bool   = false
-    @AppStorage("moringa.accentHex")  var accentHex:  String = "4E9D6A"
-    @AppStorage("moringa.readerSize") var readerSize: Double = 19
+    @Published var isDark: Bool = UserDefaults.standard.bool(forKey: "moringa.dark") {
+        didSet { UserDefaults.standard.set(isDark, forKey: "moringa.dark") }
+    }
+    @Published var accentHex: String = UserDefaults.standard.string(forKey: "moringa.accentHex") ?? "4E9D6A" {
+        didSet { UserDefaults.standard.set(accentHex, forKey: "moringa.accentHex") }
+    }
+    @Published var readerSize: Double = {
+        let v = UserDefaults.standard.double(forKey: "moringa.readerSize")
+        return v == 0 ? 19 : v
+    }() {
+        didSet { UserDefaults.standard.set(readerSize, forKey: "moringa.readerSize") }
+    }
 
     var accent:     Color { Color(hex: accentHex) }
     var accentInk:  Color { isDark ? M.accentInkD : M.accentInkL }

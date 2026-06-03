@@ -17,7 +17,7 @@ struct ReaderView: View {
                         Image(systemName: "chevron.left")
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .buttonStyle(IconBtnStyle())
+                    .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
 
                     VStack(alignment: .leading, spacing: 1) {
                         Text(book.title).font(.system(size: 13.5, weight: .semibold)).foregroundColor(theme.ink)
@@ -26,11 +26,11 @@ struct ReaderView: View {
 
                     Spacer()
                     Button { } label: { Image(systemName: "list.bullet").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle())
+                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
                     Button { } label: { Image(systemName: "textformat.size").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle())
+                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
                     Button { } label: { Image(systemName: "highlighter").font(.system(size: 14)) }
-                        .buttonStyle(IconBtnStyle())
+                        .buttonStyle(IconBtnStyle(ink2Color: theme.ink2, surface2Color: theme.surface2))
                 }
                 .padding(.horizontal, 18)
                 .frame(height: 54)
@@ -154,15 +154,17 @@ struct ParaView: View {
 }
 
 // MARK: - Icon Button Style (macOS)
+// ButtonStyle cannot use @EnvironmentObject — colors are passed as values.
 
 struct IconBtnStyle: ButtonStyle {
-    @EnvironmentObject var theme: AppTheme
+    var ink2Color: Color
+    var surface2Color: Color
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .foregroundColor(theme.ink2)
+            .foregroundColor(ink2Color)
             .frame(width: 34, height: 34)
-            .background(configuration.isPressed ? theme.surface2 : Color.clear)
+            .background(configuration.isPressed ? surface2Color : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: 9))
     }
 }

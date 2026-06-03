@@ -26,7 +26,14 @@ struct LibraryView: View {
                 HStack(spacing: 8) {
                     ForEach(filters, id: \.self) { f in
                         Button(f) { filter = f }
-                            .buttonStyle(ChipStyle(active: filter == f))
+                            .buttonStyle(ChipStyle(
+                                active: filter == f,
+                                inkColor: theme.ink,
+                                ink2Color: theme.ink2,
+                                paperColor: theme.paper,
+                                surfaceColor: theme.surface,
+                                lineColor: theme.line
+                            ))
                     }
                 }
             }
@@ -184,20 +191,25 @@ struct BookGridCell: View {
 }
 
 // MARK: - Chip Button Style
+// ButtonStyle cannot use @EnvironmentObject — colors are passed as values.
 
 struct ChipStyle: ButtonStyle {
-    @EnvironmentObject var theme: AppTheme
     var active: Bool
+    var inkColor: Color
+    var ink2Color: Color
+    var paperColor: Color
+    var surfaceColor: Color
+    var lineColor: Color
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .medium))
-            .foregroundColor(active ? theme.paper : theme.ink2)
+            .foregroundColor(active ? paperColor : ink2Color)
             .padding(.horizontal, 13)
             .frame(height: 30)
-            .background(active ? theme.ink : theme.surface)
+            .background(active ? inkColor : surfaceColor)
             .clipShape(Capsule())
-            .overlay(Capsule().stroke(theme.line, lineWidth: 1))
+            .overlay(Capsule().stroke(lineColor, lineWidth: 1))
             .opacity(configuration.isPressed ? 0.85 : 1)
     }
 }
