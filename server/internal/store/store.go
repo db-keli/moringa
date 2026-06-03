@@ -40,7 +40,7 @@ type Event struct {
 	Device    string          `json:"device"`
 	Seq       int64           `json:"seq"`
 	Type      string          `json:"type"`
-	Payload   json.RawMessage `json:"payload"`
+	Payload   json.RawMessage `json:"payload" swaggertype:"object"`
 	CreatedAt time.Time       `json:"created_at"`
 }
 

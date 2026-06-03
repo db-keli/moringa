@@ -13,9 +13,21 @@ type ingestRequest struct {
 	Device  string          `json:"device"`
 	Seq     int64           `json:"seq"`
 	Type    string          `json:"type"`
-	Payload json.RawMessage `json:"payload"`
+	Payload json.RawMessage `json:"payload" swaggertype:"object"`
 }
 
+// IngestEvent accepts a sync event from a device and pushes it to all connected clients via SSE.
+// @Summary Ingest a sync event
+// @Description Accepts a sync event (highlight added, position updated, etc.) from a device, stores it in the event log, and broadcasts it to all connected clients via SSE.
+// @Tags sync
+// @Accept json
+// @Produce json
+// @Param body body ingestRequest true "Sync event payload"
+// @Success 201 {object} store.Event
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /events [post]
+// @Security BearerAuth
 func (h *Handler) ingestEvent(w http.ResponseWriter, r *http.Request) {
 	var req ingestRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -40,6 +52,17 @@ func (h *Handler) ingestEvent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, event)
 }
 
+// Stream opens an SSE connection. The client passes its current vector clock as query params
+// (e.g. ?mac=44&phone=31) and receives all missed events followed by a live stream of new events.
+// @Summary SSE event stream
+// @Description Opens a Server-Sent Events connection. Pass the current vector clock as query params (e.g. ?mac=44&phone=31). The server streams missed events first, then pushes new events in real time.
+// @Tags sync
+// @Produce text/event-stream
+// @Param mac query int false "Last seen event seq for device 'mac'"
+// @Param phone query int false "Last seen event seq for device 'phone'"
+// @Success 200
+// @Router /stream [get]
+// @Security BearerAuth
 func (h *Handler) stream(w http.ResponseWriter, r *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {

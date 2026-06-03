@@ -1,3 +1,11 @@
+// @title Moringa API
+// @version 1.0
+// @description Self-hosted reading and writing workspace. Syncs books, highlights, and reading positions across devices.
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
 package main
 
 import (
