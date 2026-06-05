@@ -37,7 +37,8 @@ struct BookChunk: Identifiable {
     let bookId: String
     let index: Int
     let title: String
-    let html: String
+    let html: String   // offline fallback body HTML
+    let path: String   // EPUB-internal path for URL loading, e.g. OEBPS/Text/ch01.xhtml
 
     var id: String { "\(bookId)-\(index)" }
 
@@ -46,7 +47,8 @@ struct BookChunk: Identifiable {
             bookId: row["book_id"]     as? String ?? "",
             index:  (row["chunk_index"] as? Int64).map { Int($0) } ?? 0,
             title:  row["title"]       as? String ?? "",
-            html:   row["html"]        as? String ?? ""
+            html:   row["html"]        as? String ?? "",
+            path:   row["path"]        as? String ?? ""
         )
     }
 }

@@ -41,6 +41,7 @@ struct DraftsView: View {
                                 let isActive = (selectedId ?? store.drafts.first?.id) == d.id
                                 Button { selectedId = d.id } label: {
                                     DraftRowView(draft: d, isActive: isActive)
+                                        .contentShape(Rectangle())
                                 }.buttonStyle(.plain)
                                 Divider().background(theme.line)
                             }
@@ -54,6 +55,7 @@ struct DraftsView: View {
             // Editor
             if let d = selected {
                 DraftEditorView(draft: d)
+                    .id(d.id)
             } else {
                 Color.clear
             }
@@ -112,7 +114,8 @@ struct DraftEditorView: View {
             .padding(.horizontal, 22).frame(height: 50)
             .overlay(alignment: .bottom) { Divider().background(theme.line) }
 
-            ScrollView {
+            HStack(spacing: 0) {
+                Spacer()
                 VStack(alignment: .leading, spacing: 0) {
                     TextField("Title", text: $title)
                         .font(.system(size: 32, weight: .bold))
@@ -120,10 +123,12 @@ struct DraftEditorView: View {
                     TextEditor(text: $content)
                         .font(.system(size: 17.5)).foregroundColor(theme.ink)
                         .lineSpacing(6).background(theme.reader)
-                        .frame(minHeight: 400)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .frame(maxWidth: 680).padding(.horizontal, 32).padding(.vertical, 44).frame(maxWidth: .infinity)
+                .frame(maxWidth: 680).padding(.horizontal, 32).padding(.top, 44).padding(.bottom, 24)
+                Spacer()
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(theme.reader)
         .onAppear { title = draft.title; content = draft.body }

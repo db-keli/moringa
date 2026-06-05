@@ -132,6 +132,21 @@ final class Database {
             """)
             try exec("INSERT INTO db_version VALUES (1)")
         }
+
+        if v < 2 {
+            try exec("""
+                CREATE TABLE IF NOT EXISTS received_clock (
+                    device  TEXT PRIMARY KEY,
+                    seq     INTEGER NOT NULL DEFAULT 0
+                )
+            """)
+            try exec("UPDATE db_version SET v = 2")
+        }
+
+        if v < 3 {
+            try exec("ALTER TABLE book_chunks ADD COLUMN path TEXT NOT NULL DEFAULT ''")
+            try exec("UPDATE db_version SET v = 3")
+        }
     }
 
     // MARK: - Primitive exec / query
@@ -226,9 +241,9 @@ final class Database {
         try run("DELETE FROM book_chunks WHERE book_id = ?", [bookId])
         for c in chunks {
             try run("""
-                INSERT INTO book_chunks (book_id, chunk_index, title, html)
-                VALUES (?, ?, ?, ?)
-            """, [bookId, c.index, c.title, c.html])
+                INSERT INTO book_chunks (book_id, chunk_index, title, html, path)
+                VALUES (?, ?, ?, ?, ?)
+            """, [bookId, c.index, c.title, c.html, c.path])
         }
     }
 
@@ -262,6 +277,14 @@ final class Database {
 
     // MARK: - Highlights
 
+    // Insert only if not already present — used by SSE consumer so local notes survive.
+    func insertHighlightIfAbsent(_ h: Highlight) throws {
+        try run("""
+            INSERT OR IGNORE INTO highlights (id, book_id, color, text, loc, note, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, [h.id, h.bookId, h.color.rawValue, h.text, h.loc, h.note, h.createdAt])
+    }
+
     func insertHighlight(_ h: Highlight) throws {
         try run("""
             INSERT OR REPLACE INTO highlights (id, book_id, color, text, loc, note, created_at)
@@ -288,6 +311,13 @@ final class Database {
 
     // MARK: - Notes
 
+    func insertNoteIfAbsent(_ n: Note) throws {
+        try run("""
+            INSERT OR IGNORE INTO notes (id, title, body, book_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        """, [n.id, n.title, n.body, n.bookId, n.createdAt])
+    }
+
     func insertNote(_ n: Note) throws {
         try run("""
             INSERT OR REPLACE INTO notes (id, title, body, book_id, created_at, updated_at)
@@ -311,6 +341,13 @@ final class Database {
 
     // MARK: - Drafts
 
+    func insertDraftIfAbsent(_ d: Draft) throws {
+        try run("""
+            INSERT OR IGNORE INTO drafts (id, title, body, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, datetime('now'))
+        """, [d.id, d.title, d.body, d.status.rawValue, d.createdAt])
+    }
+
     func insertDraft(_ d: Draft) throws {
         try run("""
             INSERT OR REPLACE INTO drafts (id, title, body, status, created_at, updated_at)
@@ -329,7 +366,7 @@ final class Database {
     }
 
     func allDrafts() throws -> [Draft] {
-        return try rows("SELECT * FROM drafts ORDER BY updated_at DESC").map(Draft.from)
+        return try rows("SELECT * FROM drafts ORDER BY created_at DESC").map(Draft.from)
     }
 
     // MARK: - Sync queue
@@ -378,6 +415,25 @@ final class Database {
             }
         }
         return clock
+    }
+
+    // MARK: - Received clock (tracks highest seq seen from each remote device)
+
+    func receivedClock() throws -> [String: Int] {
+        var clock: [String: Int] = [:]
+        for row in (try rows("SELECT device, seq FROM received_clock")) {
+            if let d = row["device"] as? String, let s = row["seq"] as? Int64 {
+                clock[d] = Int(s)
+            }
+        }
+        return clock
+    }
+
+    func updateReceivedClock(device: String, seq: Int) throws {
+        try run("""
+            INSERT INTO received_clock (device, seq) VALUES (?, ?)
+            ON CONFLICT(device) DO UPDATE SET seq = MAX(excluded.seq, received_clock.seq)
+        """, [device, seq])
     }
 }
 

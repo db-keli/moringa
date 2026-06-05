@@ -38,6 +38,7 @@ struct BookChunk: Identifiable {
     let index: Int
     let title: String
     let html: String
+    let path: String
 
     var id: String { "\(bookId)-\(index)" }
 
@@ -46,7 +47,8 @@ struct BookChunk: Identifiable {
             bookId: row["book_id"]     as? String ?? "",
             index:  (row["chunk_index"] as? Int64).map { Int($0) } ?? 0,
             title:  row["title"]       as? String ?? "",
-            html:   row["html"]        as? String ?? ""
+            html:   row["html"]        as? String ?? "",
+            path:   row["path"]        as? String ?? ""
         )
     }
 }

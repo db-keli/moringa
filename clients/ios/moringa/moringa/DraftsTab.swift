@@ -23,8 +23,11 @@ struct DraftsTab: View {
                     ScrollView {
                         VStack(spacing: 12) {
                             ForEach(store.drafts) { d in
-                                Button { openDraft(d) } label: { MDraftCard(draft: d) }
-                                    .buttonStyle(.plain).padding(.horizontal, 20)
+                                Button { openDraft(d) } label: {
+                                    MDraftCard(draft: d)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain).padding(.horizontal, 20)
                             }
                             Spacer(minLength: 30)
                         }.padding(.top, 12)

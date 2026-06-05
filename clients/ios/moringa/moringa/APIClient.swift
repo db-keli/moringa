@@ -31,7 +31,9 @@ struct APIChunk: Decodable {
     let index: Int
     let title: String
     let html: String
+    let path: String
 }
+
 
 struct APIEvent: Decodable {
     let id: Int
@@ -40,17 +42,30 @@ struct APIEvent: Decodable {
     let type: String
 }
 
+// Parsed SSE event from /stream
+struct ServerEvent {
+    let id: Int
+    let device: String
+    let seq: Int
+    let type: String
+    let payload: [String: Any]
+}
+
 // MARK: - Client
 
 final class APIClient {
     private var baseURL: String
     private var token: String
     private let session: URLSession
+    private let streamSession: URLSession  // no resource timeout — for SSE
 
     init(baseURL: String, token: String) {
         self.baseURL = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
         self.token = token
         self.session = URLSession(configuration: .default)
+        let streamCfg = URLSessionConfiguration.default
+        streamCfg.timeoutIntervalForResource = .infinity
+        self.streamSession = URLSession(configuration: streamCfg)
     }
 
     func configure(baseURL: String, token: String) {
@@ -104,11 +119,70 @@ final class APIClient {
         var req = try urlRequest("/events")
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        var body: [String: Any] = ["device": device, "seq": seq, "type": type, "payload": payload]
+        let body: [String: Any] = ["device": device, "seq": seq, "type": type, "payload": payload]
         req.httpBody = try JSONSerialization.data(withJSONObject: body)
         let (_, resp) = try await session.data(for: req)
         guard let h = resp as? HTTPURLResponse, (200...299).contains(h.statusCode) else {
             throw APIError.badResponse((resp as? HTTPURLResponse)?.statusCode ?? 0)
+        }
+    }
+
+    // MARK: - SSE Stream
+
+    func streamEvents(clock: [String: Int]) -> AsyncThrowingStream<ServerEvent, Error> {
+        AsyncThrowingStream { continuation in
+            Task {
+                guard isConfigured else {
+                    continuation.finish(throwing: APIError.notConfigured)
+                    return
+                }
+
+                var components = URLComponents(string: baseURL + "/stream")!
+                components.queryItems = clock.map {
+                    URLQueryItem(name: $0.key, value: "\($0.value)")
+                }
+                guard let url = components.url else {
+                    continuation.finish(throwing: APIError.notConfigured)
+                    return
+                }
+
+                var req = URLRequest(url: url)
+                req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+                req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
+                req.timeoutInterval = 300
+
+                do {
+                    let (bytes, response) = try await streamSession.bytes(for: req)
+                    guard let http = response as? HTTPURLResponse else {
+                        continuation.finish(throwing: APIError.badResponse(0))
+                        return
+                    }
+                    guard (200...299).contains(http.statusCode) else {
+                        continuation.finish(throwing: APIError.badResponse(http.statusCode))
+                        return
+                    }
+
+                    for try await line in bytes.lines {
+                        guard line.hasPrefix("data: ") else { continue }
+                        let json = String(line.dropFirst(6))
+                        guard
+                            let data     = json.data(using: .utf8),
+                            let obj      = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                            let id       = (obj["id"]  as? NSNumber).map({ Int(truncating: $0) }),
+                            let device   = obj["device"] as? String,
+                            let seq      = (obj["seq"] as? NSNumber).map({ Int(truncating: $0) }),
+                            let type     = obj["type"] as? String,
+                            let payload  = obj["payload"] as? [String: Any]
+                        else { continue }
+
+                        continuation.yield(ServerEvent(id: id, device: device,
+                                                        seq: seq, type: type, payload: payload))
+                    }
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
         }
     }
 

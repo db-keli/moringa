@@ -7,7 +7,7 @@ struct MEditorView: View {
     var onBack: () -> Void
 
     @State private var title: String = ""
-    @State private var body:  String = ""
+    @State private var draftBody: String = ""
     @State private var saveTask: Task<Void, Never>?
 
     var body: some View {
@@ -29,25 +29,25 @@ struct MEditorView: View {
                 }
                 .padding(.horizontal, 16).padding(.top, 58).padding(.bottom, 10)
 
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        TextField("Title", text: $title)
-                            .font(.system(size: 26, weight: .bold)).foregroundColor(theme.ink)
-                            .textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
-                        Text("\(body.split(separator:" ").count) words · \(draft.updatedAt.prefix(10))")
-                            .font(.system(size: 12)).foregroundColor(theme.ink3)
-                            .padding(.top, 6).padding(.bottom, 14)
-                        TextEditor(text: $body)
-                            .font(.system(size: 16.5)).foregroundColor(theme.ink)
-                            .lineSpacing(5).background(theme.reader).frame(minHeight: 300)
-                    }
-                    .padding(.horizontal, 24).padding(.bottom, 80)
+                VStack(alignment: .leading, spacing: 0) {
+                    TextField("Title", text: $title)
+                        .font(.system(size: 26, weight: .bold)).foregroundColor(theme.ink)
+                        .textFieldStyle(.plain).frame(maxWidth: .infinity, alignment: .leading)
+                    Text("\(draftBody.split(separator: " ").count) words · \(draft.updatedAt.prefix(10))")
+                        .font(.system(size: 12)).foregroundColor(theme.ink3)
+                        .padding(.top, 6).padding(.bottom, 14)
+                    TextEditor(text: $draftBody)
+                        .font(.system(size: 16.5)).foregroundColor(theme.ink)
+                        .lineSpacing(5).background(theme.reader)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .padding(.horizontal, 24).padding(.bottom, 24)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
-        .onAppear { title = draft.title; body = draft.body }
-        .onChange(of: title) { scheduleSave() }
-        .onChange(of: body)  { scheduleSave() }
+        .onAppear { title = draft.title; draftBody = draft.body }
+        .onChange(of: title)     { scheduleSave() }
+        .onChange(of: draftBody) { scheduleSave() }
     }
 
     private func scheduleSave() {
@@ -55,7 +55,7 @@ struct MEditorView: View {
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 800_000_000)
             guard !Task.isCancelled else { return }
-            store.updateDraft(id: draft.id, title: title, body: body)
+            store.updateDraft(id: draft.id, title: title, body: draftBody)
         }
     }
 }

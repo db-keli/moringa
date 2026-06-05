@@ -40,7 +40,7 @@ struct NotesTab: View {
             }.buttonStyle(.plain).padding(.trailing, 18).padding(.bottom, 10)
         }
         .sheet(isPresented: $showNew) {
-            MNoteSheet(title: $newTitle, body: $newBody,
+            MNoteSheet(title: $newTitle, bodyText: $newBody,
                 onSave: { guard !newTitle.isEmpty else { return }
                     store.createNote(title: newTitle, body: newBody); showNew = false },
                 onCancel: { showNew = false })
@@ -70,7 +70,7 @@ struct MNoteCard: View {
 struct MNoteSheet: View {
     @Environment(AppTheme.self) var theme
     @Binding var title: String
-    @Binding var body: String
+    @Binding var bodyText: String
     var onSave: () -> Void
     var onCancel: () -> Void
 
@@ -80,7 +80,7 @@ struct MNoteSheet: View {
                 TextField("Title", text: $title)
                     .font(.system(size: 22, weight: .bold)).textFieldStyle(.plain)
                     .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 8)
-                TextEditor(text: $body)
+                TextEditor(text: $bodyText)
                     .font(.system(size: 16)).foregroundColor(theme.ink)
                     .padding(.horizontal, 16)
             }

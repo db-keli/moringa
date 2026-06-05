@@ -25,17 +25,17 @@ enum M {
     static let hlPink   = Color(hex: "E6B6C4")
 
     // light
-    static let lPaper    = Color(hex: "F4F0E7")
-    static let lSidebar  = Color(hex: "ECE6D9")
+    static let lPaper    = Color(hex: "FFFFFF")
+    static let lSidebar  = Color(hex: "FFFFFF")
     static let lSurface  = Color(hex: "FFFFFF")
-    static let lSurface2 = Color(hex: "F2EDE2")
-    static let lSurface3 = Color(hex: "EAE3D4")
+    static let lSurface2 = Color(hex: "FFFFFF")
+    static let lSurface3 = Color(hex: "FFFFFF")
     static let lInk      = Color(hex: "24292B")
     static let lInk2     = Color(hex: "5E625F")
     static let lInk3     = Color(hex: "948F86")
-    static let lLine     = Color(hex: "E2DACB")
-    static let lLine2    = Color(hex: "D8CFBC")
-    static let lReader   = Color(hex: "F7F3EB")
+    static let lLine     = Color(hex: "E5E5E5")
+    static let lLine2    = Color(hex: "D4D4D4")
+    static let lReader   = Color(hex: "FFFFFF")
 
     // dark
     static let dPaper    = Color(hex: "14191A")
