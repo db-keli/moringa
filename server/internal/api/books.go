@@ -191,12 +191,71 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse EPUB into chunks (best-effort, non-fatal on failure).
-	if _, err := books.ParseEPUB(destPath, bookDir); err != nil {
+	baseURL := "http://" + r.Host
+	if r.TLS != nil {
+		baseURL = "https://" + r.Host
+	}
+	if _, err := books.ParseEPUB(destPath, bookDir, book.ID, baseURL); err != nil {
 		log.Printf("error parsing epub %s: %v", book.ID, err)
 	}
 
 	writeJSON(w, http.StatusCreated, book)
+}
+
+func (h *Handler) bookAssets() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if id == "" {
+			http.NotFound(w, r)
+			return
+		}
+
+		prefix := "/books/" + id + "/assets"
+		rel := strings.TrimPrefix(r.URL.Path, prefix)
+		if rel == "" || rel == "/" {
+			http.NotFound(w, r)
+			return
+		}
+		if !strings.HasPrefix(rel, "/") {
+			rel = "/" + rel
+		}
+
+		bookRoot := filepath.Join(h.booksDir, id)
+
+		diskRel := strings.TrimPrefix(rel, "/")
+		fullPath := filepath.Join(bookRoot, filepath.FromSlash(diskRel))
+
+		if !strings.HasPrefix(
+			fullPath+string(filepath.Separator),
+			bookRoot+string(filepath.Separator),
+		) {
+			http.NotFound(w, r)
+			return
+		}
+
+		ext := strings.ToLower(filepath.Ext(fullPath))
+		if ext == ".xhtml" || ext == ".htm" {
+			data, err := os.ReadFile(fullPath)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "max-age=3600")
+			_, _ = w.Write(data)
+			return
+		}
+
+		r.URL.Path = rel
+		if r.URL.RawPath != "" {
+			rawRel := strings.TrimPrefix(r.URL.RawPath, prefix)
+			if !strings.HasPrefix(rawRel, "/") {
+				rawRel = "/" + rawRel
+			}
+			r.URL.RawPath = rawRel
+		}
+		http.FileServer(http.Dir(bookRoot)).ServeHTTP(w, r)
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

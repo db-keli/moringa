@@ -1,24 +1,51 @@
-//
-//  ContentView.swift
-//  moringa
-//
-//  Created by kekeli on 5/31/26.
-//
-
 import SwiftUI
 
-struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
+enum AppScreen: String, Hashable {
+    case library, highlights, notes, drafts, search, settings
 }
 
-#Preview {
-    ContentView()
+struct ContentView: View {
+    @Environment(AppTheme.self) var theme
+    @State private var screen: AppScreen = .library
+    @State private var openedBook: Book? = nil
+
+    var body: some View {
+        ZStack {
+            HStack(spacing: 0) {
+                SidebarView(screen: $screen, openSearch: { screen = .search })
+                    .frame(width: 248)
+                    .background(theme.sidebar)
+
+                Divider().background(theme.line)
+
+                Group {
+                    switch screen {
+                    case .library:    LibraryView(openBook: { openedBook = $0 })
+                    case .highlights: HighlightsView()
+                    case .notes:      NotesView()
+                    case .drafts:     DraftsView()
+                    case .search:     SearchView()
+                    case .settings:   SettingsView()
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(theme.paper)
+            }
+            .background(theme.paper)
+
+            // Reader full-screen overlay
+            if let book = openedBook {
+                ReaderView(book: book, onBack: {
+                    withAnimation(.easeInOut(duration: 0.22)) { openedBook = nil }
+                })
+                .transition(.asymmetric(
+                    insertion: .move(edge: .trailing),
+                    removal: .move(edge: .trailing)
+                ))
+                .zIndex(10)
+            }
+        }
+        .animation(.easeInOut(duration: 0.22), value: openedBook?.id)
+        .frame(minWidth: 860, minHeight: 540)
+    }
 }
