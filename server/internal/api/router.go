@@ -31,17 +31,15 @@ func (h *Handler) health(w http.ResponseWriter, r *http.Request) {
 func NewRouter(h *Handler, authToken string) http.Handler {
 	mux := http.NewServeMux()
 
-	// Public routes (no auth required)
 	mux.HandleFunc("GET /health", h.health)
 	mux.HandleFunc("GET /swagger/doc.json", SwaggerJSON)
 	mux.HandleFunc("GET /swagger/", SwaggerUI)
+	mux.Handle("GET /books/{id}/assets/", h.bookAssets())
 
-	// Protected routes
 	protected := http.NewServeMux()
 	protected.HandleFunc("GET /books", h.listBooks)
 	protected.HandleFunc("GET /books/{id}", h.getBook)
 	protected.HandleFunc("GET /books/{id}/chunks", h.getBookChunks)
-	protected.Handle("GET /books/{id}/assets/", h.bookAssets())
 	protected.HandleFunc("POST /books/import", h.importBook)
 	protected.HandleFunc("POST /events", h.ingestEvent)
 	protected.HandleFunc("GET /stream", h.stream)
