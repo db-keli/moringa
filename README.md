@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="moringa-logo.png" alt="moringa" width="90" />
+  <img src="moringa-logo.png" alt="moringa" width="150" />
 </p>
-
-# moringa
 
 moringa is a fast, distraction-free reading app for mac and iphone that keeps everything in sync without you thinking about it, assisting reading better than the ios books app. open a book on your mac, pick it up on your iphone exactly where you left off. highlight something, add a note, start writing. it's all there on both devices instantly.
 
