@@ -8,7 +8,7 @@ the goal is a reading environment that gets out of the way and lets you focus on
 
 ## features
 
-- [ ] schedule time to give recaps over a particular section of read
+- [ ] schedule time to give recaps on a particular section of read
 - [x] epub reading on macos and ios
 - [x] real-time sync across devices: position, highlights, notes, drafts
 - [x] highlighting with colour coding
