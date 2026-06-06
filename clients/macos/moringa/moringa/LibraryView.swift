@@ -46,7 +46,7 @@ struct LibraryView: View {
                         } else {
                             Image(systemName: "plus").font(.system(size: 13, weight: .semibold))
                         }
-                        Text("Import EPUB")
+                        Text("Import Book")
                     }
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundColor(.white)
@@ -91,7 +91,7 @@ struct LibraryView: View {
         }
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: [UTType(filenameExtension: "epub") ?? .data],
+            allowedContentTypes: [UTType(filenameExtension: "epub") ?? .data, .pdf],
             allowsMultipleSelection: false
         ) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }
@@ -126,11 +126,11 @@ struct LibraryView: View {
             Text("No books yet")
                 .font(.system(size: 18, weight: .semibold)).foregroundColor(theme.ink)
             Text(store.serverURL.isEmpty
-                 ? "Configure your server in Settings, then import an EPUB."
-                 : "Import an EPUB to get started.")
+                 ? "Configure your server in Settings, then import an EPUB or PDF."
+                 : "Import an EPUB or PDF to get started.")
                 .font(.system(size: 14)).foregroundColor(theme.ink3)
                 .multilineTextAlignment(.center)
-            Button("Import EPUB") { showImporter = true }
+            Button("Import Book") { showImporter = true }
                 .buttonStyle(PrimaryButtonStyle())
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
