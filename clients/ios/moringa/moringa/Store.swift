@@ -79,7 +79,7 @@ final class Store {
             for ab in apiBooks {
                 let colorHex = colorForId(ab.id)
                 let b = Book(id: ab.id, title: ab.title, author: ab.author,
-                             colorHex: colorHex, progress: 0, createdAt: ab.created_at)
+                             format: ab.format, colorHex: colorHex, progress: 0, createdAt: ab.created_at)
                 try db.insertBook(b)
             }
             await MainActor.run {
@@ -99,12 +99,12 @@ final class Store {
         }
     }
 
-    // MARK: - EPUB Import
+    // MARK: - Book Import
 
     func importBook(title: String, author: String, fileURL: URL) async throws {
         let ab = try await api.importBook(title: title, author: author, fileURL: fileURL)
         let b = Book(id: ab.id, title: ab.title, author: ab.author,
-                     colorHex: colorForId(ab.id), progress: 0, createdAt: ab.created_at)
+                     format: ab.format, colorHex: colorForId(ab.id), progress: 0, createdAt: ab.created_at)
         try db.insertBook(b)
         await MainActor.run { books = (try? db.allBooks()) ?? [] }
     }

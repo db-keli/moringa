@@ -24,6 +24,7 @@ struct APIBook: Decodable {
     let id: String
     let title: String
     let author: String
+    let format: String
     let created_at: String
 }
 

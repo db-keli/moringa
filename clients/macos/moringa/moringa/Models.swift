@@ -6,17 +6,20 @@ struct Book: Identifiable, Hashable {
     let id: String
     let title: String
     let author: String
+    let format: String   // "epub" or "pdf"
     let colorHex: String
     var progress: Double
     var createdAt: String
 
     var color: Color { Color(hex: colorHex) }
+    var isPDF: Bool { format == "pdf" }
 
     static func from(_ row: [String: Any?]) -> Book {
         Book(
             id:        row["id"]         as? String ?? UUID().uuidString,
             title:     row["title"]      as? String ?? "",
             author:    row["author"]     as? String ?? "",
+            format:    row["format"]     as? String ?? "epub",
             colorHex:  row["color_hex"]  as? String ?? colorForId(row["id"] as? String ?? ""),
             progress:  row["progress"]   as? Double ?? 0,
             createdAt: row["created_at"] as? String ?? ""

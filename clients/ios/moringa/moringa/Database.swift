@@ -147,6 +147,11 @@ final class Database {
             try exec("ALTER TABLE book_chunks ADD COLUMN path TEXT NOT NULL DEFAULT ''")
             try exec("UPDATE db_version SET v = 3")
         }
+
+        if v < 4 {
+            try exec("ALTER TABLE books ADD COLUMN format TEXT NOT NULL DEFAULT 'epub'")
+            try exec("UPDATE db_version SET v = 4")
+        }
     }
 
     // MARK: - Primitive exec / query
@@ -218,9 +223,9 @@ final class Database {
 
     func insertBook(_ b: Book) throws {
         try run("""
-            INSERT OR IGNORE INTO books (id, title, author, color_hex, progress, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        """, [b.id, b.title, b.author, b.colorHex, b.progress, b.createdAt])
+            INSERT OR IGNORE INTO books (id, title, author, format, color_hex, progress, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, [b.id, b.title, b.author, b.format, b.colorHex, b.progress, b.createdAt])
     }
 
     func updateBookProgress(id: String, progress: Double) throws {
