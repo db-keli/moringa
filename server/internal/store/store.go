@@ -31,6 +31,7 @@ type Book struct {
 	ID        string    `json:"id"`
 	Title     string    `json:"title"`
 	Author    string    `json:"author"`
+	Format    string    `json:"format"`
 	FilePath  string    `json:"-"`
 	CreatedAt time.Time `json:"created_at"`
 }
