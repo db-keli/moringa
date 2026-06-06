@@ -4,26 +4,28 @@ import WebKit
 // MARK: - WKWebView wrapper (macOS)
 
 struct WebReaderView: NSViewRepresentable {
-    let chapterURL: URL?      // load from server when available (nil = offline fallback)
-    let html: String          // offline fallback body HTML
+    let chapterURL: URL?
+    let html: String
     let isDark: Bool
     let fontSize: Double
+    var readingLayout: ReadingLayout = .scroll
     var highlights: [Highlight] = []
     var onScrollPct: ((Double) -> Void)?
     var onTextSelected: ((String) -> Void)?
-    var onChapterLink: ((String) -> Void)?   // called with the linked chapter's filename
+    var onChapterLink: ((String) -> Void)?
+    var onPageInfo: ((Int, Int) -> Void)?     // (currentPage, totalPages)
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
         let uc = config.userContentController
         uc.add(context.coordinator, name: "scrollHandler")
         uc.add(context.coordinator, name: "selectionHandler")
+        uc.add(context.coordinator, name: "pageInfoHandler")
         uc.addUserScript(WKUserScript(
-            source: layoutCSS,
+            source: staticLayoutCSS,
             injectionTime: .atDocumentStart,
             forMainFrameOnly: true
         ))
-        // Inject the stable JS (no isDark/fontSize dependency) at document end
         uc.addUserScript(WKUserScript(
             source: readerJS,
             injectionTime: .atDocumentEnd,
@@ -32,6 +34,7 @@ struct WebReaderView: NSViewRepresentable {
         let wv = WKWebView(frame: .zero, configuration: config)
         wv.navigationDelegate = context.coordinator
         wv.setValue(false, forKey: "drawsBackground")
+        wv.allowsMagnification = true
         return wv
     }
 
@@ -40,33 +43,31 @@ struct WebReaderView: NSViewRepresentable {
         c.onScrollPct    = onScrollPct
         c.onTextSelected = onTextSelected
         c.onChapterLink  = onChapterLink
+        c.onPageInfo     = onPageInfo
         c.webView        = wv
         c.isDark         = isDark
         c.fontSize       = fontSize
+        c.readingLayout  = readingLayout
         c.highlights     = highlights
 
-        let urlChanged  = c.loadedURL  != chapterURL
-        let htmlChanged = c.loadedHTML != html
+        let urlChanged   = c.loadedURL  != chapterURL
+        let htmlChanged  = c.loadedHTML != html
+        let styleChanged = c.loadedIsDark != isDark || c.loadedFontSize != fontSize || c.loadedLayout != readingLayout
 
         if urlChanged || (chapterURL == nil && htmlChanged) {
-            // Load new chapter
             c.loadedURL  = chapterURL
             c.loadedHTML = html
-
             if let url = chapterURL {
                 wv.load(URLRequest(url: url))
             } else {
-                // Offline: wrap chunk HTML in a minimal shell
                 wv.loadHTMLString(offlineShell(html), baseURL: nil)
             }
-            // CSS + highlights injected in didFinish
-        } else if c.loadedIsDark != isDark || c.loadedFontSize != fontSize {
-            // Settings changed — update CSS without reloading
+        } else if styleChanged {
             c.loadedIsDark   = isDark
             c.loadedFontSize = fontSize
+            c.loadedLayout   = readingLayout
             c.injectCSS(into: wv)
         } else {
-            // Only highlights changed
             c.injectHighlights(into: wv)
         }
     }
@@ -79,18 +80,19 @@ struct WebReaderView: NSViewRepresentable {
         var onScrollPct: ((Double) -> Void)?
         var onTextSelected: ((String) -> Void)?
         var onChapterLink: ((String) -> Void)?
+        var onPageInfo: ((Int, Int) -> Void)?
         var highlights: [Highlight] = []
         weak var webView: WKWebView?
 
-        var isDark: Bool   = false
-        var fontSize: Double = 18
+        var isDark: Bool         = false
+        var fontSize: Double     = 18
+        var readingLayout: ReadingLayout = .scroll
 
-        var loadedURL: URL?     = nil
-        var loadedHTML: String  = ""
-        var loadedIsDark: Bool  = false
+        var loadedURL: URL?        = nil
+        var loadedHTML: String     = ""
+        var loadedIsDark: Bool     = false
         var loadedFontSize: Double = 0
-
-        // MARK: Message handling
+        var loadedLayout: ReadingLayout = .scroll
 
         func userContentController(_ ctrl: WKUserContentController, didReceive msg: WKScriptMessage) {
             switch msg.name {
@@ -98,11 +100,15 @@ struct WebReaderView: NSViewRepresentable {
                 if let pct = msg.body as? Double { onScrollPct?(pct) }
             case "selectionHandler":
                 if let text = msg.body as? String, !text.isEmpty { onTextSelected?(text) }
+            case "pageInfoHandler":
+                if let d = msg.body as? [String: Any],
+                   let cur = d["current"] as? Int,
+                   let tot = d["total"] as? Int {
+                    onPageInfo?(cur, tot)
+                }
             default: break
             }
         }
-
-        // MARK: Navigation
 
         func webView(_ wv: WKWebView,
                      decidePolicyFor action: WKNavigationAction,
@@ -112,32 +118,116 @@ struct WebReaderView: NSViewRepresentable {
                 decisionHandler(.allow)
                 return
             }
-            // Intercept chapter-to-chapter links and route them through the reader
             let ext = url.pathExtension.lowercased()
             if ext == "xhtml" || ext == "html" || ext == "htm" || ext.isEmpty {
                 onChapterLink?(url.lastPathComponent)
                 decisionHandler(.cancel)
                 return
             }
-            // Let the WebView handle anything else (e.g. anchor fragments handled internally)
             decisionHandler(.allow)
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             loadedIsDark   = isDark
             loadedFontSize = fontSize
+            loadedLayout   = readingLayout
             injectCSS(into: webView)
             injectHighlights(into: webView)
         }
 
-        // MARK: CSS injection
+        // MARK: CSS + page tracking injection
 
         func injectCSS(into wv: WKWebView) {
-            let bg  = isDark ? "#161B1C" : "#FFFFFF"
-            let ink = isDark ? "#EAE7DE" : "#1A1A1A"
+            let bg        = isDark ? "#161B1C" : "#FFFFFF"
+            let ink       = isDark ? "#EAE7DE" : ""
+            let colorRule = isDark ? "color: \(ink) !important;" : ""
+
+            let layoutRule: String
+            let pageJS: String
+
+            switch readingLayout {
+            case .scroll:
+                layoutRule = """
+                    html { height: auto !important; overflow: visible !important; }
+                    body {
+                        max-width: 720px !important;
+                        margin-left: auto !important; margin-right: auto !important;
+                        padding: 40px 40px 100px !important;
+                        column-count: unset !important;
+                        height: auto !important; overflow: visible !important;
+                    }
+                """
+                pageJS = """
+                    (function() {
+                        if (window._moringaPageListener) {
+                            window.removeEventListener('scroll', window._moringaPageListener);
+                        }
+                        window._moringaPageListener = function() {
+                            var ph = window.innerHeight;
+                            var total = Math.max(1, Math.ceil(document.body.scrollHeight / ph));
+                            var current = Math.min(total, Math.floor(window.scrollY / ph) + 1);
+                            try { window.webkit.messageHandlers.pageInfoHandler.postMessage({current: current, total: total}); } catch(e) {}
+                        };
+                        window.addEventListener('scroll', window._moringaPageListener);
+                        setTimeout(window._moringaPageListener, 150);
+                    })();
+                """
+
+            case .paginated:
+                // Columns on :root, scroll-snap-type x mandatory for trackpad snapping.
+                layoutRule = """
+                    :root {
+                        height: 100vh !important;
+                        max-height: 100vh !important;
+                        column-count: 1 !important;
+                        column-fill: auto !important;
+                        column-gap: 0 !important;
+                        padding: 48px 80px !important;
+                        box-sizing: border-box !important;
+                        scroll-snap-type: x mandatory !important;
+                    }
+                    body {
+                        max-width: unset !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        height: auto !important;
+                    }
+                """
+                pageJS = macPaginatedPageTrackingJS(cols: 1)
+
+            case .twoColumn:
+                layoutRule = """
+                    :root {
+                        height: 100vh !important;
+                        max-height: 100vh !important;
+                        column-count: 2 !important;
+                        column-fill: auto !important;
+                        column-gap: 48px !important;
+                        column-rule: 1px solid rgba(128,128,128,0.18) !important;
+                        padding: 48px 56px !important;
+                        box-sizing: border-box !important;
+                        scroll-snap-type: x mandatory !important;
+                    }
+                    body {
+                        max-width: unset !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        height: auto !important;
+                    }
+                """
+                pageJS = macPaginatedPageTrackingJS(cols: 2)
+
+            }
+
             let css = """
-                html { font-size: \(fontSize)px; }
-                html, body { background: \(bg) !important; color: \(ink) !important; }
+                html { font-size: \(fontSize)px !important; }
+                body { font-size: \(fontSize)px !important; }
+                html, body { background: \(bg) !important; \(colorRule) }
+                \(layoutRule)
+                img { max-width: 100% !important; width: auto !important; height: auto !important; }
+                figure { max-width: 100% !important; }
+                table { max-width: 100% !important; overflow-x: auto; display: block; }
+                p, li, td, th, blockquote { word-wrap: break-word; overflow-wrap: break-word; }
                 .hl-yellow { background: #F2D578 !important; border-radius: 3px; padding: 1px 0; }
                 .hl-green  { background: #ADD8B0 !important; border-radius: 3px; padding: 1px 0; }
                 .hl-blue   { background: #A9CCEA !important; border-radius: 3px; padding: 1px 0; }
@@ -156,10 +246,9 @@ struct WebReaderView: NSViewRepresentable {
                     }
                     s.textContent = `\(escaped)`;
                 })();
+                \(pageJS)
             """, completionHandler: nil)
         }
-
-        // MARK: Highlight injection
 
         func injectHighlights(into wv: WKWebView) {
             let hlData = highlights.map { ["loc": $0.loc, "color": $0.color.rawValue] }
@@ -172,8 +261,12 @@ struct WebReaderView: NSViewRepresentable {
 
 // MARK: - Offline fallback shell
 
-private func offlineShell(_ body: String) -> String {
-    """
+private func offlineShell(_ html: String) -> String {
+    let trimmed = html.trimmingCharacters(in: .whitespacesAndNewlines)
+    if trimmed.hasPrefix("<!DOCTYPE") || trimmed.lowercased().hasPrefix("<html") {
+        return html
+    }
+    return """
     <!DOCTYPE html>
     <html>
     <head>
@@ -181,95 +274,102 @@ private func offlineShell(_ body: String) -> String {
     <meta name="viewport" content="width=device-width, initial-scale=1"/>
     </head>
     <body>
-    \(body)
+    \(html)
     </body>
     </html>
     """
 }
 
+// MARK: - Paginated page-tracking JS (macOS)
+
+private func macPaginatedPageTrackingJS(cols: Int) -> String {
+    """
+    (function() {
+        window.scrollTo(0, 0);
+
+        \(cols == 2 ? """
+        function ensureEvenSpreads() {
+            var w = window.innerWidth;
+            var totalW = document.scrollingElement.scrollWidth;
+            var num = Math.round(totalW / w);
+            var existing = document.getElementById('moringa-virtual-col');
+            if (num % 2 !== 0) {
+                if (!existing) {
+                    var div = document.createElement('div');
+                    div.id = 'moringa-virtual-col';
+                    div.style.breakBefore = 'column';
+                    div.innerHTML = '\\u200B';
+                    document.body.appendChild(div);
+                }
+            } else { existing && existing.remove(); }
+        }
+        setTimeout(ensureEvenSpreads, 200);
+        """ : "")
+
+        if (window._moringaPageListener) {
+            window.removeEventListener('scroll', window._moringaPageListener);
+        }
+        window._moringaPageListener = function() {
+            var w = window.innerWidth;
+            var total = Math.max(1, Math.round(document.scrollingElement.scrollWidth / w));
+            var current = Math.round(window.scrollX / w) + 1;
+            try { window.webkit.messageHandlers.pageInfoHandler.postMessage({current: current, total: total}); } catch(e) {}
+        };
+        window.addEventListener('scroll', window._moringaPageListener);
+        setTimeout(function() {
+            var w = window.innerWidth;
+            var total = Math.max(1, Math.round(document.scrollingElement.scrollWidth / w));
+            try { window.webkit.messageHandlers.pageInfoHandler.postMessage({current: 1, total: total}); } catch(e) {}
+        }, 350);
+    })();
+    """
+}
+
 // MARK: - Static layout CSS (injected at document start to prevent FOUC)
 
-private let layoutCSS = """
+private let staticLayoutCSS = """
 (function() {
     var s = document.createElement('style');
     s.id = 'moringa-layout';
     s.textContent = `
         *, *::before, *::after { box-sizing: border-box; }
-        html { overflow-x: hidden; -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }
+        html { -webkit-text-size-adjust: 100%; -webkit-font-smoothing: antialiased; }
         body {
-            max-width: 720px !important;
-            margin-left: auto !important;
-            margin-right: auto !important;
-            padding: 40px 40px 100px !important;
-            overflow-x: hidden;
-            word-wrap: break-word;
-            overflow-wrap: break-word;
+            max-width: 720px;
+            margin-left: auto;
+            margin-right: auto;
+            padding: 40px 40px 100px;
         }
-        img {
-            float: none !important; clear: both !important; display: block !important;
-            max-width: 100% !important; width: auto !important; height: auto !important;
-            margin: 1em auto !important;
-        }
-        figure, svg {
-            float: none !important; clear: both !important; display: block !important;
-            max-width: 100% !important; margin: 1em auto !important; text-align: center;
-        }
-        body::after, section::after, article::after, aside::after, div::after,
-        blockquote::after, li::after, td::after, th::after {
-            content: ''; display: table; clear: both;
-        }
-        video, audio, iframe, canvas { max-width: 100% !important; height: auto; }
-        table { max-width: 100% !important; overflow-x: auto; display: block; border-collapse: collapse; }
-        td, th { word-break: break-word; }
-        pre, code { white-space: pre-wrap !important; word-break: break-word; overflow-wrap: break-word; }
-        .hl-yellow { background: #F2D578 !important; border-radius: 3px; padding: 1px 0; }
-        .hl-green  { background: #ADD8B0 !important; border-radius: 3px; padding: 1px 0; }
-        .hl-blue   { background: #A9CCEA !important; border-radius: 3px; padding: 1px 0; }
-        .hl-pink   { background: #E6B6C4 !important; border-radius: 3px; padding: 1px 0; }
+        img { max-width: 100%; width: auto; height: auto; }
+        figure { max-width: 100%; }
+        video, audio, iframe, canvas { max-width: 100%; height: auto; }
+        table { max-width: 100%; overflow-x: auto; display: block; }
+        p, li, td, th, blockquote { word-wrap: break-word; overflow-wrap: break-word; }
+        .hl-yellow { background: #F2D578; border-radius: 3px; padding: 1px 0; }
+        .hl-green  { background: #ADD8B0; border-radius: 3px; padding: 1px 0; }
+        .hl-blue   { background: #A9CCEA; border-radius: 3px; padding: 1px 0; }
+        .hl-pink   { background: #E6B6C4; border-radius: 3px; padding: 1px 0; }
     `;
     (document.head || document.documentElement).appendChild(s);
 })();
 """
 
-// MARK: - Reader JS (injected at document end — no isDark/fontSize dependency)
+// MARK: - Reader JS (injected at document end)
 
 private let readerJS = """
-// ── Character-offset helpers ─────────────────────────────────────────────────
-//
-// bodyTextLength(container, offset) — returns the number of characters from
-// the start of document.body up to (container, offset).
-//
-// Using Range.toString() handles BOTH cases:
-//   • container is a text node  → offset is a character index within it
-//   • container is an element   → offset is a child-node index within it
-// The old getTextOffset(textNode, charIndex) approach would return -1 whenever
-// the selection endpoint landed on an element boundary (e.g. start/end of a
-// paragraph), silently discarding any multi-line or cross-paragraph selection.
-//
-// bodyTextLength — count characters from the start of document.body up to
-// (container, offset) using the same TreeWalker that resolveTextOffset uses.
-// This guarantees the two functions agree on every character, including text
-// inside hidden elements (display:none page markers etc.) that Range.toString()
-// silently skips but TreeWalker always visits.
 function bodyTextLength(container, offset) {
     var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     var total = 0, n;
     while ((n = walker.nextNode())) {
         if (container.nodeType === Node.TEXT_NODE) {
-            // Simple case: container is a text node.
             if (n === container) return total + offset;
             total += n.nodeValue.length;
         } else {
-            // Element container: offset is a child-node index.
-            // Count text nodes that appear BEFORE container.childNodes[offset].
             var pivot = container.childNodes[offset] || null;
             if (pivot === null) {
-                // offset == childNodes.length → after all children of container.
                 if (container.contains(n)) { total += n.nodeValue.length; }
                 else                        { return total; }
             } else {
-                // n.compareDocumentPosition(pivot) has DOCUMENT_POSITION_FOLLOWING (4)
-                // set when pivot comes AFTER n, i.e. n is before pivot → count it.
                 if (n.compareDocumentPosition(pivot) & 4) { total += n.nodeValue.length; }
                 else                                       { return total; }
             }
@@ -289,14 +389,12 @@ function resolveTextOffset(target) {
     return null;
 }
 
-// ── Scroll tracking ──────────────────────────────────────────────────────────
 window.addEventListener('scroll', function() {
     var h = document.body.scrollHeight - window.innerHeight;
     var pct = h > 0 ? window.scrollY / h : 0;
     try { window.webkit.messageHandlers.scrollHandler.postMessage(Math.min(1, Math.max(0, pct))); } catch(e) {}
 });
 
-// ── Text selection → Swift ───────────────────────────────────────────────────
 function checkSelection() {
     var sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
@@ -315,7 +413,6 @@ function checkSelection() {
 document.addEventListener('mouseup', checkSelection);
 document.addEventListener('touchend', function() { setTimeout(checkSelection, 150); });
 
-// ── Highlight rendering ──────────────────────────────────────────────────────
 window.applyHighlight = function(locStr, color) {
     var data; try { data = JSON.parse(locStr); } catch(e) { return; }
     if (data.start == null || data.end == null) return;
