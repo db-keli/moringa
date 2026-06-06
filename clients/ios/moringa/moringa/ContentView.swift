@@ -50,7 +50,12 @@ struct ContentView: View {
             if let ov = overlay {
                 Group {
                     switch ov {
-                    case .reader(let b):  MReaderView(book: b, onBack: { overlay = nil })
+                    case .reader(let b):
+                        if b.isPDF {
+                            MPDFReaderView(book: b, onBack: { overlay = nil })
+                        } else {
+                            MReaderView(book: b, onBack: { overlay = nil })
+                        }
                     case .editor(let d):  MEditorView(draft: d, onBack: { overlay = nil })
                     case .search:         MSearchView(onBack: { overlay = nil })
                     case .settings:       MSettingsView(onBack: { overlay = nil })
