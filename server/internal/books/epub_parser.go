@@ -92,10 +92,13 @@ func ParseEPUB(epubPath, outputDir, bookID, baseURL string) ([]Chunk, error) {
 	return chunks, nil
 }
 
-// buildChunk produces a self-contained HTML fragment for one spine item.
-// It embeds the chapter's CSS (inline <style> blocks and linked .css files,
-// with @font-face / url() rewritten to absolute server URLs) and rewrites
-// all asset src/href values, so the WebView needs no base URL.
+// buildChunk produces a self-contained full HTML document for one spine item.
+// It preserves the original <html>/<head>/<body> structure (including lang, dir,
+// charset, and other attributes), inlines all CSS with asset URLs rewritten to
+// absolute server paths (so the offline fallback in the client works without a
+// base URL), and rewrites all src/href/xlink:href values in the body.
+// When loaded online the client requests the chapter directly via chapterURL,
+// where relative paths resolve naturally; the html field is used only offline.
 func buildChunk(raw []byte, files []*zip.File, chapterPath, assetBase string) (title, html string) {
 	chapterDir := filepath.ToSlash(filepath.Dir(chapterPath))
 	if chapterDir == "." {
@@ -112,39 +115,6 @@ func buildChunk(raw []byte, files []*zip.File, chapterPath, assetBase string) (t
 		title = titleFromHref(chapterPath)
 	}
 
-	var cssBlocks []string
-
-	doc.Find("head style").Each(func(_ int, s *goquery.Selection) {
-		if text := strings.TrimSpace(s.Text()); text != "" {
-			cssBlocks = append(cssBlocks, text)
-		}
-	})
-
-	doc.Find("head link").Each(func(_ int, s *goquery.Selection) {
-		rel, _ := s.Attr("rel")
-		if !strings.EqualFold(strings.TrimSpace(rel), "stylesheet") {
-			return
-		}
-		href, _ := s.Attr("href")
-		if href == "" {
-			return
-		}
-		cssPath := href
-		if chapterDir != "" {
-			cssPath = filepath.ToSlash(filepath.Join(chapterDir, href))
-		}
-		cssPath = strings.TrimPrefix(cssPath, "./")
-		cssRaw, err := readFile(files, cssPath)
-		if err != nil {
-			return
-		}
-		cssDir := filepath.ToSlash(filepath.Dir(cssPath))
-		if cssDir == "." {
-			cssDir = ""
-		}
-		cssBlocks = append(cssBlocks, rewriteCSSURLs(string(cssRaw), cssDir, assetBase))
-	})
-
 	isAbsolute := func(v string) bool {
 		return strings.HasPrefix(v, "http://") || strings.HasPrefix(v, "https://") ||
 			strings.HasPrefix(v, "data:") || strings.HasPrefix(v, "#")
@@ -154,41 +124,83 @@ func buildChunk(raw []byte, files []*zip.File, chapterPath, assetBase string) (t
 		if chapterDir != "" {
 			p = filepath.ToSlash(filepath.Join(chapterDir, val))
 		}
-		return strings.TrimPrefix(p, "./")
+		return assetBase + "/" + strings.TrimPrefix(p, "./")
 	}
 
+	// Collect and inline CSS (with url() rewritten) then remove the original
+	// <style> and <link rel="stylesheet"> elements from <head>.
+	var cssBlocks []string
+
+	doc.Find("head style").Each(func(_ int, s *goquery.Selection) {
+		if text := strings.TrimSpace(s.Text()); text != "" {
+			cssBlocks = append(cssBlocks, rewriteCSSURLs(text, chapterDir, assetBase))
+		}
+		s.Remove()
+	})
+
+	doc.Find("head link").Each(func(_ int, s *goquery.Selection) {
+		rel, _ := s.Attr("rel")
+		if !strings.EqualFold(strings.TrimSpace(rel), "stylesheet") {
+			return
+		}
+		href, _ := s.Attr("href")
+		if href == "" {
+			s.Remove()
+			return
+		}
+		cssPath := href
+		if chapterDir != "" {
+			cssPath = filepath.ToSlash(filepath.Join(chapterDir, href))
+		}
+		cssPath = strings.TrimPrefix(cssPath, "./")
+		cssRaw, err := readFile(files, cssPath)
+		if err != nil {
+			s.Remove()
+			return
+		}
+		cssDir := filepath.ToSlash(filepath.Dir(cssPath))
+		if cssDir == "." {
+			cssDir = ""
+		}
+		cssBlocks = append(cssBlocks, rewriteCSSURLs(string(cssRaw), cssDir, assetBase))
+		s.Remove()
+	})
+
+	// Inject combined CSS into <head> as a single <style> block.
+	if len(cssBlocks) > 0 {
+		combined := strings.Join(cssBlocks, "\n")
+		doc.Find("head").AppendHtml("<style>\n" + combined + "\n</style>")
+	}
+
+	// Ensure a viewport meta is present.
+	if doc.Find(`meta[name="viewport"]`).Length() == 0 {
+		doc.Find("head").PrependHtml(`<meta name="viewport" content="width=device-width, initial-scale=1.0"/>`)
+	}
+
+	// Rewrite body asset URLs to absolute server paths.
 	doc.Find("body [src]").Each(func(_ int, s *goquery.Selection) {
 		if v, _ := s.Attr("src"); v != "" && !isAbsolute(v) {
-			s.SetAttr("src", assetBase+"/"+resolve(v))
+			s.SetAttr("src", resolve(v))
 		}
 	})
 	doc.Find("body [href]").Each(func(_ int, s *goquery.Selection) {
 		if v, _ := s.Attr("href"); v != "" && !isAbsolute(v) {
-			s.SetAttr("href", assetBase+"/"+resolve(v))
+			s.SetAttr("href", resolve(v))
 		}
 	})
 	doc.Find("body [xlink\\:href]").Each(func(_ int, s *goquery.Selection) {
 		if v, _ := s.Attr("xlink:href"); v != "" && !isAbsolute(v) {
-			s.SetAttr("xlink:href", assetBase+"/"+resolve(v))
+			s.SetAttr("xlink:href", resolve(v))
 		}
 	})
 
-	bodyHTML, err := doc.Find("body").Html()
-	if err != nil || strings.TrimSpace(bodyHTML) == "" {
+	// Render full document preserving the <html> element and all its attributes
+	// (lang, dir, xmlns, class, etc.).
+	outerHTML, err := goquery.OuterHtml(doc.Find("html").First())
+	if err != nil || strings.TrimSpace(outerHTML) == "" {
 		return title, strings.TrimSpace(string(raw))
 	}
-
-	var sb strings.Builder
-	if len(cssBlocks) > 0 {
-		sb.WriteString("<style>\n")
-		for _, css := range cssBlocks {
-			sb.WriteString(css)
-			sb.WriteByte('\n')
-		}
-		sb.WriteString("</style>\n")
-	}
-	sb.WriteString(strings.TrimSpace(bodyHTML))
-	return title, sb.String()
+	return title, "<!DOCTYPE html>\n" + outerHTML
 }
 
 func rewriteCSSURLs(css, cssDir, assetBase string) string {

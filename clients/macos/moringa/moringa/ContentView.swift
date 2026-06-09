@@ -35,9 +35,17 @@ struct ContentView: View {
 
             // Reader full-screen overlay
             if let book = openedBook {
-                ReaderView(book: book, onBack: {
-                    withAnimation(.easeInOut(duration: 0.22)) { openedBook = nil }
-                })
+                Group {
+                    if book.isPDF {
+                        PDFReaderView(book: book, onBack: {
+                            withAnimation(.easeInOut(duration: 0.22)) { openedBook = nil }
+                        })
+                    } else {
+                        ReaderView(book: book, onBack: {
+                            withAnimation(.easeInOut(duration: 0.22)) { openedBook = nil }
+                        })
+                    }
+                }
                 .transition(.asymmetric(
                     insertion: .move(edge: .trailing),
                     removal: .move(edge: .trailing)

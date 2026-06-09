@@ -77,7 +77,7 @@ struct LibraryTab: View {
         }
         .fileImporter(
             isPresented: $showImporter,
-            allowedContentTypes: [UTType(filenameExtension: "epub") ?? .data],
+            allowedContentTypes: [UTType(filenameExtension: "epub") ?? .data, .pdf],
             allowsMultipleSelection: false
         ) { result in
             guard case .success(let urls) = result, let url = urls.first else { return }
@@ -105,13 +105,13 @@ struct LibraryTab: View {
             Text("No books yet").font(.system(size: 18, weight: .semibold)).foregroundColor(theme.ink)
             Text(store.serverURL.isEmpty
                  ? "Configure your server in Settings."
-                 : "Import an EPUB to get started.")
+                 : "Import an EPUB or PDF to get started.")
                 .font(.system(size: 14)).foregroundColor(theme.ink3).multilineTextAlignment(.center)
             Button { showImporter = true } label: {
                 HStack(spacing: 6) {
                     if importing { ProgressView().tint(.white) }
                     else { Image(systemName: "plus") }
-                    Text("Import EPUB")
+                    Text("Import Book")
                 }
                 .font(.system(size: 15, weight: .semibold)).foregroundColor(.white)
                 .padding(.horizontal, 20).frame(height: 44)

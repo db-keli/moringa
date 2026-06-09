@@ -133,8 +133,15 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	if !strings.HasSuffix(strings.ToLower(header.Filename), ".epub") {
-		writeError(w, http.StatusBadRequest, "only .epub files are accepted")
+	lowerName := strings.ToLower(header.Filename)
+	var format string
+	switch {
+	case strings.HasSuffix(lowerName, ".epub"):
+		format = "epub"
+	case strings.HasSuffix(lowerName, ".pdf"):
+		format = "pdf"
+	default:
+		writeError(w, http.StatusBadRequest, "only .epub and .pdf files are accepted")
 		return
 	}
 
@@ -143,12 +150,20 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid file")
 		return
 	}
-	if magic[0] != 0x50 || magic[1] != 0x4B || magic[2] != 0x03 || magic[3] != 0x04 {
-		writeError(w, http.StatusBadRequest, "file is not a valid EPUB (ZIP) archive")
-		return
+	switch format {
+	case "epub":
+		if magic[0] != 0x50 || magic[1] != 0x4B || magic[2] != 0x03 || magic[3] != 0x04 {
+			writeError(w, http.StatusBadRequest, "file is not a valid EPUB (ZIP) archive")
+			return
+		}
+	case "pdf":
+		if magic[0] != 0x25 || magic[1] != 0x50 || magic[2] != 0x44 || magic[3] != 0x46 {
+			writeError(w, http.StatusBadRequest, "file is not a valid PDF")
+			return
+		}
 	}
 
-	// Save the uploaded EPUB to a temp location, then insert the book
+	// Save the uploaded file to a temp location, then insert the book
 	// record to get the ID, and finally move it into place.
 	if err := os.MkdirAll(h.booksDir, 0o755); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to create books directory")
@@ -172,7 +187,7 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 	}
 	tmp.Close()
 
-	book, err := h.store.InsertBook(r.Context(), title, author, "")
+	book, err := h.store.InsertBook(r.Context(), title, author, format, "")
 	if err != nil {
 		os.Remove(tmpPath)
 		writeError(w, http.StatusInternalServerError, "failed to create book")
@@ -185,18 +200,21 @@ func (h *Handler) importBook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "failed to create storage directory")
 		return
 	}
-	destPath := filepath.Join(bookDir, "original.epub")
+	origFile := "original." + format
+	destPath := filepath.Join(bookDir, origFile)
 	if err := os.Rename(tmpPath, destPath); err != nil {
 		writeError(w, http.StatusInternalServerError, "failed to finalize file")
 		return
 	}
 
-	baseURL := "http://" + r.Host
-	if r.TLS != nil {
-		baseURL = "https://" + r.Host
-	}
-	if _, err := books.ParseEPUB(destPath, bookDir, book.ID, baseURL); err != nil {
-		log.Printf("error parsing epub %s: %v", book.ID, err)
+	if format == "epub" {
+		baseURL := "http://" + r.Host
+		if r.TLS != nil {
+			baseURL = "https://" + r.Host
+		}
+		if _, err := books.ParseEPUB(destPath, bookDir, book.ID, baseURL); err != nil {
+			log.Printf("error parsing epub %s: %v", book.ID, err)
+		}
 	}
 
 	writeJSON(w, http.StatusCreated, book)
@@ -245,6 +263,13 @@ func (h *Handler) bookAssets() http.Handler {
 			_, _ = w.Write(data)
 			return
 		}
+
+		// Clear the Content-Type set by the jsonHeader middleware so that
+		// http.FileServer can detect and set the correct type from the file
+		// extension (css, png, woff2, etc.). Without this, FileServer keeps
+		// the poisoned "application/json" type and WebKit refuses to apply
+		// stylesheets or render images.
+		w.Header().Del("Content-Type")
 
 		r.URL.Path = rel
 		if r.URL.RawPath != "" {

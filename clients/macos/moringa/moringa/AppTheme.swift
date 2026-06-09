@@ -1,6 +1,30 @@
 import SwiftUI
 import Observation
 
+// MARK: - Reading Layout
+
+enum ReadingLayout: String, CaseIterable {
+    case scroll    = "scroll"
+    case paginated = "paginated"
+    case twoColumn = "twoColumn"
+
+    var icon: String {
+        switch self {
+        case .scroll:    return "doc.text"
+        case .paginated: return "book"
+        case .twoColumn: return "rectangle.split.2x1"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .scroll:    return "Scroll"
+        case .paginated: return "Paginated"
+        case .twoColumn: return "Two Column"
+        }
+    }
+}
+
 // MARK: - Hex Color
 extension Color {
     init(hex: String) {
@@ -63,12 +87,17 @@ final class AppTheme {
     var readerSize: Double = 19 {
         didSet { UserDefaults.standard.set(readerSize, forKey: "moringa.readerSize") }
     }
+    var readingLayout: ReadingLayout = .scroll {
+        didSet { UserDefaults.standard.set(readingLayout.rawValue, forKey: "moringa.readingLayout") }
+    }
 
     init() {
         isDark    = UserDefaults.standard.bool(forKey: "moringa.dark")
         if let s  = UserDefaults.standard.string(forKey: "moringa.accentHex") { accentHex = s }
         let rs    = UserDefaults.standard.double(forKey: "moringa.readerSize")
         if rs > 0 { readerSize = rs }
+        if let r  = UserDefaults.standard.string(forKey: "moringa.readingLayout"),
+           let l  = ReadingLayout(rawValue: r) { readingLayout = l }
     }
 
     var accent:     Color { Color(hex: accentHex) }

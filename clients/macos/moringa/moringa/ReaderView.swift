@@ -12,6 +12,8 @@ struct ReaderView: View {
     @State private var errorMsg: String?
     @State private var hlMode  = false
     @State private var hlColor: HLColor = .yellow
+    @State private var currentPage = 1
+    @State private var totalPages  = 1
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,6 +57,35 @@ struct ReaderView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 9))
                 }.buttonStyle(.plain).help(hlMode ? "Stop highlighting" : "Highlight text")
 
+                Divider().frame(height: 18).padding(.horizontal, 2)
+
+                // Font size
+                Button { theme.readerSize = max(12, theme.readerSize - 2) } label: {
+                    Image(systemName: "textformat.size.smaller")
+                        .font(.system(size: 13)).foregroundColor(theme.ink2)
+                        .frame(width: 30, height: 30)
+                }.buttonStyle(.plain).help("Decrease font size")
+                Button { theme.readerSize = min(32, theme.readerSize + 2) } label: {
+                    Image(systemName: "textformat.size.larger")
+                        .font(.system(size: 13)).foregroundColor(theme.ink2)
+                        .frame(width: 30, height: 30)
+                }.buttonStyle(.plain).help("Increase font size")
+
+                // Layout toggle
+                Button {
+                    let all = ReadingLayout.allCases
+                    if let idx = all.firstIndex(of: theme.readingLayout) {
+                        theme.readingLayout = all[(idx + 1) % all.count]
+                    }
+                } label: {
+                    Image(systemName: theme.readingLayout.icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundColor(theme.readingLayout == .scroll ? theme.ink2 : theme.accent)
+                        .frame(width: 34, height: 34)
+                        .background(theme.readingLayout == .scroll ? Color.clear : theme.accentSoft)
+                        .clipShape(RoundedRectangle(cornerRadius: 9))
+                }.buttonStyle(.plain).help(theme.readingLayout.label)
+
                 if !chunks.isEmpty {
                     Text("\(currentChunk + 1) / \(chunks.count)")
                         .font(.system(size: 12)).foregroundColor(theme.ink3)
@@ -91,6 +122,7 @@ struct ReaderView: View {
                         html: chunks[currentChunk].html,
                         isDark: theme.isDark,
                         fontSize: theme.readerSize,
+                        readingLayout: theme.readingLayout,
                         highlights: chunkHighlights
                     ) { pct in
                         let overall = (Double(currentChunk) + pct) / Double(chunks.count)
@@ -104,13 +136,42 @@ struct ReaderView: View {
                         store.addHighlight(bookId: book.id, color: hlColor, text: text, loc: loc)
                     } onChapterLink: { filename in
                         navigateToChapter(filename: filename)
+                    } onPageInfo: { cur, tot in
+                        currentPage = cur
+                        totalPages  = tot
                     }
                     .background(theme.reader)
+                    .onChange(of: currentChunk) {
+                        currentPage = 1
+                        totalPages  = 1
+                    }
 
-                    HStack {
-                        Text("\(Int(book.progress * 100))% · \(chunks[currentChunk].title.isEmpty ? "Chapter \(currentChunk + 1)" : chunks[currentChunk].title)")
+                    // Footer bar
+                    HStack(spacing: 12) {
+                        // Chapter title
+                        let chTitle = chunks[currentChunk].title.isEmpty
+                            ? "Chapter \(currentChunk + 1)"
+                            : chunks[currentChunk].title
+                        Text(chTitle)
+                            .font(.system(size: 12)).foregroundColor(theme.ink3)
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        // Page indicator
+                        if theme.readingLayout == .paginated {
+                            pageDotsView
+                        } else {
+                            Text("p.\(currentPage) of \(totalPages)")
+                                .font(.system(size: 12, design: .monospaced)).foregroundColor(theme.ink3)
+                        }
+
+                        Spacer()
+
+                        Text("\(Int(book.progress * 100))%")
                             .font(.system(size: 12)).foregroundColor(theme.ink3)
                     }
+                    .padding(.horizontal, 18)
                     .frame(height: 40)
                     .overlay(alignment: .top) { Divider().background(theme.line) }
                     .background(theme.reader)
@@ -119,6 +180,23 @@ struct ReaderView: View {
         }
         .background(theme.reader)
         .task { await loadChunks() }
+    }
+
+    // ── Page dots (paginated mode) ────────────────────────────────────────────
+
+    @ViewBuilder private var pageDotsView: some View {
+        let visible = min(totalPages, 9)
+        let dotPage = totalPages > 9
+            ? Int(Double(currentPage - 1) / Double(totalPages - 1) * Double(visible - 1))
+            : currentPage - 1
+        HStack(spacing: 5) {
+            ForEach(0..<visible, id: \.self) { i in
+                Circle()
+                    .fill(i == dotPage ? theme.accent : theme.ink3.opacity(0.35))
+                    .frame(width: i == dotPage ? 7 : 5, height: i == dotPage ? 7 : 5)
+                    .animation(.easeInOut(duration: 0.2), value: dotPage)
+            }
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

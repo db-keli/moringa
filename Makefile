@@ -24,6 +24,7 @@ fmt:
 
 migrate:
 	psql "$$DATABASE_URL" -f server/migrations/001_init.sql
+	psql "$$DATABASE_URL" -f server/migrations/002_add_format.sql
 
 hooks:
 	./scripts/install-hooks.sh
