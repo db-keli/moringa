@@ -2,7 +2,7 @@
   <img src="moringa-logo.png" alt="moringa" width="150" />
 </p>
 
-moringa is a fast, distraction-free reading app for mac and iphone that i'm building for myself. it keeps everything in sync without you thinking about it, assisting reading better than the ios books app. syncing across devices just like the ios books app with more features to make reading more fun and productive.
+moringa is a fast, distraction-free reading app for mac and iphone that i'm building for myself. syncing across devices just like the ios books app with more features to make reading more fun and productive.
 
 the goal is a reading environment that gets out of the way and lets you focus on the text, while being powerful enough to support the way serious readers actually work. no selling of books, no getting slow when number of books increase and notes feelings like what you'd do on a sheet.
 
