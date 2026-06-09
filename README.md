@@ -14,7 +14,7 @@ the goal is a reading environment that gets out of the way and lets you focus on
 - [x] highlighting with colour coding
 - [x] notes on highlights
 - [x] draft editor for writing while you read
-- [ ] pdf support
+- [x] pdf support
 - [ ] pdf to epub converter
 - [ ] linked annotations: tag a highlight and cite it anywhere in your writing
 - [ ] scribbling and freehand annotation
