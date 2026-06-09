@@ -117,34 +117,40 @@ struct ReaderView: View {
                 Spacer()
             } else if !chunks.isEmpty {
                 VStack(spacing: 0) {
-                    WebReaderView(
-                        chapterURL: chapterURL(for: chunks[currentChunk]),
-                        html: chunks[currentChunk].html,
-                        isDark: theme.isDark,
-                        fontSize: theme.readerSize,
-                        readingLayout: theme.readingLayout,
-                        highlights: chunkHighlights
-                    ) { pct in
-                        let overall = (Double(currentChunk) + pct) / Double(chunks.count)
-                        store.savePosition(bookId: book.id, chunkIndex: currentChunk, scrollPct: overall)
-                    } onTextSelected: { payload in
-                        guard hlMode,
-                              let data = payload.data(using: .utf8),
-                              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                              let text = json["text"] as? String, !text.isEmpty else { return }
-                        let loc = buildLoc(payload: payload, chunk: currentChunk)
-                        store.addHighlight(bookId: book.id, color: hlColor, text: text, loc: loc)
-                    } onChapterLink: { filename in
-                        navigateToChapter(filename: filename)
-                    } onPageInfo: { cur, tot in
-                        currentPage = cur
-                        totalPages  = tot
+                    ZStack {
+                        let poolChunks = [currentChunk - 1, currentChunk, currentChunk + 1].filter { chunks.indices.contains($0) }
+                        ForEach(poolChunks, id: \.self) { i in
+                            WebReaderView(
+                                chapterURL: chapterURL(for: chunks[i]),
+                                html: chunks[i].html,
+                                isDark: theme.isDark,
+                                fontSize: theme.readerSize,
+                                readingLayout: theme.readingLayout,
+                                highlights: i == currentChunk ? chunkHighlights : []
+                            ) { pct in
+                                guard i == currentChunk else { return }
+                                let overall = (Double(i) + pct) / Double(chunks.count)
+                                store.savePosition(bookId: book.id, chunkIndex: i, scrollPct: overall)
+                            } onTextSelected: { payload in
+                                guard i == currentChunk, hlMode,
+                                      let data = payload.data(using: .utf8),
+                                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                                      let text = json["text"] as? String, !text.isEmpty else { return }
+                                let loc = buildLoc(payload: payload, chunk: i)
+                                store.addHighlight(bookId: book.id, color: hlColor, text: text, loc: loc)
+                            } onChapterLink: { filename in
+                                guard i == currentChunk else { return }
+                                navigateToChapter(filename: filename)
+                            } onPageInfo: { cur, tot in
+                                guard i == currentChunk else { return }
+                                currentPage = cur
+                                totalPages  = tot
+                            }
+                            .opacity(i == currentChunk ? 1 : 0)
+                            .allowsHitTesting(i == currentChunk)
+                        }
                     }
                     .background(theme.reader)
-                    .onChange(of: currentChunk) {
-                        currentPage = 1
-                        totalPages  = 1
-                    }
 
                     // Footer bar
                     HStack(spacing: 12) {
